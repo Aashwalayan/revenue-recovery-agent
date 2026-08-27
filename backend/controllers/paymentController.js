@@ -6,6 +6,8 @@ const getPayments = async (req, res) => {
             count: 10
         });
 
+        console.log(JSON.stringify(payments.items, null, 2));
+
         res.json(payments);
     } catch (error) {
         console.error("Razorpay error:", error);
