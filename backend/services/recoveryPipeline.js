@@ -26,6 +26,10 @@ async function recoveryPipeline(failedPayment) {
     );
 
     return {
+        failureCategory: agentProposal.failureCategory,
+        recoverable: agentProposal.recoverable,
+        confidence: agentProposal.confidence,
+        agentProposedAction: agentProposal.proposedAction,
         finalAction: finalDecision.finalAction,
         actionOverridden: finalDecision.overridden,
         overrideReason: finalDecision.overrideReason
