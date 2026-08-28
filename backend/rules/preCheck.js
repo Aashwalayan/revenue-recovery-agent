@@ -20,7 +20,7 @@ const preCheck = (failedPayment, category) => {
         return {
             blocked: true,
             reason: "retry_limit_reached",
-            action: "do_not_retry"
+            action: "escalate"
         };
     }
 
@@ -33,12 +33,12 @@ const getMaxAttempts = (category) => {
     const retryLimits = {
         card_declined_generic: 2,
         insufficient_funds: 2,
-        expired_card: 0,
+        expired_card: null,
         authentication_3ds_failure: 1,
         bank_unavailable: 3,
         upi_timeout: 2,
-        transaction_limit_exceeded: 0,
-        repeated_failure_same_reason: 0,
+        transaction_limit_exceeded: null,
+        repeated_failure_same_reason: null,
         uncategorized: 0
     };
 
