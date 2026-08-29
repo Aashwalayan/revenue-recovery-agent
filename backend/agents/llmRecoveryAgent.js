@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const validateProposal = require("./proposalSchema");
+const { validateProposal } = require("./proposalSchema");
 
 const llmRecoveryAgent = async (failedPayment, failureCategory) => {
     const prompt = `

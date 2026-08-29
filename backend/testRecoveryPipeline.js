@@ -1,4 +1,5 @@
 const recoveryPipeline = require("./services/recoveryPipeline");
+const { allowedActions } = require("./agents/proposalSchema");
 
 const customerOptedOut = require("./data/scenarios/customerOptedOut");
 const expiredCard = require("./data/scenarios/expiredCard");
@@ -22,10 +23,40 @@ async function run() {
 
     for (const scenario of scenarios) {
         const result = await recoveryPipeline(scenario.failedPayment);
+        const expected = scenario.expectedOutcome;
 
-        const expected = scenario.expectedOutcome.recommendedAction;
-        const actual = result.finalAction;
-        const pass = expected === actual;
+        const checks = [];
+
+        if (expected.recommendedAction !== undefined) {
+            checks.push({
+                name: "recommended action",
+                expected: expected.recommendedAction,
+                actual: result.finalAction,
+                pass:
+                    result.finalAction === expected.recommendedAction
+            });
+        }
+
+        if (expected.failureCategory !== undefined) {
+            checks.push({
+                name: "failure category",
+                expected: expected.failureCategory,
+                actual: result.failureCategory,
+                pass:
+                    result.failureCategory === expected.failureCategory
+            });
+        }
+
+        if (expected.recommendedAction === undefined) {
+            checks.push({
+                name: "valid final action",
+                expected: "one of allowed actions",
+                actual: result.finalAction,
+                pass: allowedActions.includes(result.finalAction)
+            });
+        }
+
+        const pass = checks.every((check) => check.pass);
 
         if (pass) {
             passed++;
@@ -34,8 +65,18 @@ async function run() {
         }
 
         console.log("\nScenario:", scenario.scenarioId);
-        console.log("Expected:", expected);
-        console.log("Got:", actual);
+
+        for (const check of checks) {
+            console.log(
+                `${check.name}:`,
+                check.expected,
+                "| Got:",
+                check.actual,
+                "|",
+                check.pass ? "PASS" : "FAIL"
+            );
+        }
+
         console.log("Overridden:", result.actionOverridden);
         console.log("Result:", pass ? "PASS" : "FAIL");
     }

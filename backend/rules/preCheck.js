@@ -1,3 +1,5 @@
+const failureCategories = require("../taxonomy/failureCategories");
+
 const preCheck = (failedPayment, category) => {
     const { customer, attemptContext } = failedPayment;
 
@@ -30,20 +32,8 @@ const preCheck = (failedPayment, category) => {
 };
 
 const getMaxAttempts = (category) => {
-    const retryLimits = {
-        card_declined_generic: 2,
-        insufficient_funds: 2,
-        expired_card: null,
-        authentication_3ds_failure: 1,
-        bank_unavailable: 3,
-        upi_timeout: 2,
-        transaction_limit_exceeded: null,
-        repeated_failure_same_reason: null,
-        uncategorized: 0
-    };
-
-    return Object.prototype.hasOwnProperty.call(retryLimits, category)
-        ? retryLimits[category]
+    return Object.prototype.hasOwnProperty.call(failureCategories, category)
+        ? failureCategories[category].retryPolicy.maxAttempts
         : null;
 };
 

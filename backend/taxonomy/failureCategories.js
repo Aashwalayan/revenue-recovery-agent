@@ -26,7 +26,7 @@ const failureCategories = {
         defaultRecoverable: false,
         defaultAction: "ask_customer_to_update_payment_method",
         retryPolicy: {
-            maxAttempts: 0
+            maxAttempts: null
         },
         priority: "high"
     },
@@ -69,7 +69,7 @@ const failureCategories = {
         defaultRecoverable: true,
         defaultAction: "try_alternative_method",
         retryPolicy: {
-            maxAttempts: 0
+            maxAttempts: null
         },
         priority: "medium"
     },
@@ -79,7 +79,7 @@ const failureCategories = {
         defaultRecoverable: false,
         defaultAction: "escalate",
         retryPolicy: {
-            maxAttempts: 0
+            maxAttempts: null
         },
         priority: "high"
     },

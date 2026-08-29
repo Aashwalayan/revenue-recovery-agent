@@ -12,6 +12,10 @@ async function recoveryPipeline(failedPayment) {
 
     if (preCheckResult.blocked) {
         return {
+            failureCategory,
+            recoverable: null,
+            confidence: null,
+            agentProposedAction: null,
             finalAction: preCheckResult.action,
             actionOverridden: true,
             overrideReason: preCheckResult.reason

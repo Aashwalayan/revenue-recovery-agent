@@ -56,4 +56,7 @@ const validateProposal = (proposal) => {
     };
 };
 
-module.exports = validateProposal;
+module.exports = {
+    validateProposal,
+    allowedActions
+};
