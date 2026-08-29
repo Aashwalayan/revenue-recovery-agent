@@ -4,12 +4,16 @@ const customerOptedOut = require("./data/scenarios/customerOptedOut");
 const expiredCard = require("./data/scenarios/expiredCard");
 const insufficientFundsRepeated = require("./data/scenarios/insufficientFundsRepeated");
 const insufficientFundsSingle = require("./data/scenarios/insufficientFundsSingle");
+const expiredCardGenerated = require(
+    "./data/scenarios/generated/expiredCardGenerated"
+);
 
 const scenarios = [
     customerOptedOut,
     expiredCard,
     insufficientFundsRepeated,
-    insufficientFundsSingle
+    insufficientFundsSingle,
+    expiredCardGenerated
 ];
 
 async function run() {
