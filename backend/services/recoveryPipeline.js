@@ -1,6 +1,6 @@
 const classify = require("../taxonomy/classify");
 const preCheck = require("../rules/preCheck");
-const recoveryAgent = require("../agents/recoveryAgent");
+const llmRecoveryAgent = require("../agents/llmRecoveryAgent");
 const postCheck = require("../rules/postCheck");
 
 async function recoveryPipeline(failedPayment) {
@@ -18,7 +18,10 @@ async function recoveryPipeline(failedPayment) {
         };
     }
 
-    const agentProposal = recoveryAgent(failedPayment, failureCategory);
+    const agentProposal = await llmRecoveryAgent(
+        failedPayment,
+        failureCategory
+    );
 
     const finalDecision = postCheck(
         failedPayment,
