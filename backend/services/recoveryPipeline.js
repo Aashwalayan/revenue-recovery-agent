@@ -51,11 +51,12 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
 
     const finalDecision = postCheck(
         failedPayment,
+        failureCategory,
         agentProposal
     );
 
     return {
-        failureCategory: agentProposal.failureCategory,
+        failureCategory,
         recoverable: agentProposal.recoverable,
         confidence: agentProposal.confidence,
         agentProposedAction: agentProposal.proposedAction,

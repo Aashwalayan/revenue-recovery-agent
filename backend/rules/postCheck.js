@@ -1,6 +1,6 @@
 const failureCategories = require("../taxonomy/failureCategories");
 
-const postCheck = (failedPayment, agentProposal) => {
+const postCheck = (failedPayment, category, agentProposal) => {
     const { customer } = failedPayment;
 
     // Hard constraint: customer has opted out
@@ -13,8 +13,6 @@ const postCheck = (failedPayment, agentProposal) => {
     }
 
     
-
-    const category = agentProposal.failureCategory;
 
     const limit = Object.prototype.hasOwnProperty.call(failureCategories, category)
         ? failureCategories[category].retryPolicy.maxAttempts
