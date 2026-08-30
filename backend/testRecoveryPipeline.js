@@ -10,6 +10,7 @@ const generateAttemptLimitScenarios = require("./data/generators/attemptLimitSce
 const generateOptOutScenarios = require("./data/generators/optOutScenarios");
 const generateClassificationScenarios = require("./data/generators/classificationScenarios");
 const generateAttemptLimitBoundaryScenarios = require("./data/generators/attemptLimitBoundaryScenarios");
+const agentFailureScenarios = require("./data/scenarios/agentFailureScenario");
 
 
 
@@ -27,7 +28,8 @@ const scenarios = [
     ...generatedAttemptLimitScenarios,
     ...generatedOptOutScenarios,
     ...generatedClassificationScenarios,
-    ...generatedAttemptLimitBoundaryScenarios
+    ...generatedAttemptLimitBoundaryScenarios,
+    ...agentFailureScenarios
 ];
 
 
@@ -36,7 +38,10 @@ async function run() {
     let failed = 0;
 
     for (const scenario of scenarios) {
-        const result = await recoveryPipeline(scenario.failedPayment);
+        const result = await recoveryPipeline(
+            scenario.failedPayment,
+            { agent: scenario.agent }
+        );
         const expected = scenario.expectedOutcome;
 
         const checks = [];
@@ -77,6 +82,16 @@ async function run() {
                 actual: result.actionOverridden,
                 pass:
                     result.actionOverridden === expected.actionOverridden
+            });
+        }
+
+        if (expected.overrideReason !== undefined) {
+            checks.push({
+                name: "override reason",
+                expected: expected.overrideReason,
+                actual: result.overrideReason,
+                pass:
+                    result.overrideReason === expected.overrideReason
             });
         }
 

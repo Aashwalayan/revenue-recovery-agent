@@ -67,15 +67,19 @@ Allowed proposedAction values:
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
+        const error = new Error(
             `OpenRouter request failed: ${JSON.stringify(data)}`
         );
+        error.code = "AGENT_NETWORK_ERROR";
+        throw error;
     }
 
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-        throw new Error("LLM returned no proposal content.");
+        const error = new Error("LLM returned no proposal content.");
+        error.code = "AGENT_EMPTY_RESPONSE";
+        throw error;
     }
 
     let proposal;
@@ -83,17 +87,21 @@ Allowed proposedAction values:
     try {
         proposal = JSON.parse(content);
     } catch {
-        throw new Error(
+        const error = new Error(
             `LLM returned invalid JSON: ${content}`
         );
+        error.code = "AGENT_INVALID_JSON";
+        throw error;
     }
 
     const validation = validateProposal(proposal);
 
     if (!validation.valid) {
-        throw new Error(
+        const error = new Error(
             `Invalid LLM proposal: ${validation.errors.join(", ")}`
         );
+        error.code = "AGENT_INVALID_PROPOSAL";
+        throw error;
     }
 
     return proposal;
