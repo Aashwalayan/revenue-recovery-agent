@@ -5,17 +5,28 @@ const customerOptedOut = require("./data/scenarios/customerOptedOut");
 const expiredCard = require("./data/scenarios/expiredCard");
 const insufficientFundsRepeated = require("./data/scenarios/insufficientFundsRepeated");
 const insufficientFundsSingle = require("./data/scenarios/insufficientFundsSingle");
-const expiredCardGenerated = require(
-    "./data/scenarios/generated/expiredCardGenerated"
-);
+const expiredCardGenerated = require("./data/scenarios/generated/expiredCardGenerated");
+const generateAttemptLimitScenarios = require("./data/generators/attemptLimitScenarios");
+const generateOptOutScenarios = require("./data/generators/optOutScenarios");
+const generateClassificationScenarios = require("./data/generators/classificationScenarios");
+
+
+
+const generatedAttemptLimitScenarios = generateAttemptLimitScenarios();
+const generatedOptOutScenarios = generateOptOutScenarios();
+const generatedClassificationScenarios = generateClassificationScenarios();
 
 const scenarios = [
     customerOptedOut,
     expiredCard,
     insufficientFundsRepeated,
     insufficientFundsSingle,
-    expiredCardGenerated
+    expiredCardGenerated,
+    ...generatedAttemptLimitScenarios,
+    ...generatedOptOutScenarios,
+    ...generatedClassificationScenarios
 ];
+
 
 async function run() {
     let passed = 0;
@@ -53,6 +64,16 @@ async function run() {
                 expected: "one of allowed actions",
                 actual: result.finalAction,
                 pass: allowedActions.includes(result.finalAction)
+            });
+        }
+
+        if (expected.actionOverridden !== undefined) {
+            checks.push({
+                name: "action overridden",
+                expected: expected.actionOverridden,
+                actual: result.actionOverridden,
+                pass:
+                    result.actionOverridden === expected.actionOverridden
             });
         }
 
