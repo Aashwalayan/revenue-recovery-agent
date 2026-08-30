@@ -9,12 +9,14 @@ const expiredCardGenerated = require("./data/scenarios/generated/expiredCardGene
 const generateAttemptLimitScenarios = require("./data/generators/attemptLimitScenarios");
 const generateOptOutScenarios = require("./data/generators/optOutScenarios");
 const generateClassificationScenarios = require("./data/generators/classificationScenarios");
+const generateAttemptLimitBoundaryScenarios = require("./data/generators/attemptLimitBoundaryScenarios");
 
 
 
 const generatedAttemptLimitScenarios = generateAttemptLimitScenarios();
 const generatedOptOutScenarios = generateOptOutScenarios();
 const generatedClassificationScenarios = generateClassificationScenarios();
+const generatedAttemptLimitBoundaryScenarios = generateAttemptLimitBoundaryScenarios();
 
 const scenarios = [
     customerOptedOut,
@@ -24,7 +26,8 @@ const scenarios = [
     expiredCardGenerated,
     ...generatedAttemptLimitScenarios,
     ...generatedOptOutScenarios,
-    ...generatedClassificationScenarios
+    ...generatedClassificationScenarios,
+    ...generatedAttemptLimitBoundaryScenarios
 ];
 
 
