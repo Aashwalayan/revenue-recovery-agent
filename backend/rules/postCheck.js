@@ -18,15 +18,17 @@ const postCheck = (failedPayment, category, agentProposal) => {
         ? failureCategories[category].retryPolicy.maxAttempts
         : null;
 
+    // Hard constraint: retry limit exceeded. This applies regardless of
+    // what the agent proposed -- a hard rule can't depend on whether the
+    // agent's wording happens to contain "retry".
     if (
         limit !== null &&
         limit !== undefined &&
-        failedPayment.attemptContext.attemptNumber > limit &&
-        agentProposal.proposedAction.includes("retry")
+        failedPayment.attemptContext.attemptNumber > limit
     ) {
         return {
             finalAction: "escalate",
-            overridden: true,
+            overridden: agentProposal.proposedAction !== "escalate",
             overrideReason: "retry_limit_reached"
         };
     }

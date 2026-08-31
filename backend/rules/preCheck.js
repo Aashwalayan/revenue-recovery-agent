@@ -1,7 +1,5 @@
-const failureCategories = require("../taxonomy/failureCategories");
-
 const preCheck = (failedPayment, category) => {
-    const { customer, attemptContext } = failedPayment;
+    const { customer } = failedPayment;
 
     // Hard constraint: customer has opted out
     if (customer.optedOut === true) {
@@ -12,29 +10,16 @@ const preCheck = (failedPayment, category) => {
         };
     }
 
-    // Hard constraint: maximum retry attempts reached
-    const maxAttempts = getMaxAttempts(category);
-
-    if (
-        maxAttempts !== null &&
-        attemptContext.attemptNumber > maxAttempts
-    ) {
-        return {
-            blocked: true,
-            reason: "retry_limit_reached",
-            action: "escalate"
-        };
-    }
+    // Retry-limit is intentionally NOT hard-blocked here. The agent is
+    // still consulted even when the limit is already exceeded, so the
+    // pipeline produces a real "AI proposed X" record before postCheck
+    // enforces the limit as a genuine override -- rather than silently
+    // never asking. postCheck.js enforces this as a hard rule regardless
+    // of what the agent proposes.
 
     return {
         blocked: false
     };
-};
-
-const getMaxAttempts = (category) => {
-    return Object.prototype.hasOwnProperty.call(failureCategories, category)
-        ? failureCategories[category].retryPolicy.maxAttempts
-        : null;
 };
 
 module.exports = preCheck;

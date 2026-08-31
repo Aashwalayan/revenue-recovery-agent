@@ -1,81 +1,68 @@
 import { useState } from "react";
+import { useRecoveryData } from "./hooks/useRecoveryData";
+import { SummaryBar } from "./components/SummaryBar";
+import { ActionBar } from "./components/ActionBar";
+import { InterventionsSpotlight } from "./components/InterventionsSpotlight";
+import { PaymentsTable } from "./components/PaymentsTable";
+import { AuditTrailModal } from "./components/AuditTrailModal";
 import "./App.css";
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
 function App() {
-  const [status, setStatus] = useState("");
+  const {
+    cases,
+    interventions,
+    summary,
+    isLoadingPayments,
+    isAnalyzingAll,
+    loadError,
+    fetchPayments,
+    analyzeOne,
+    analyzeAll,
+  } = useRecoveryData();
 
-  const handlePayment = async () => {
-    try {
-      setStatus("Creating order...");
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
-      const response = await fetch("http://localhost:5000/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: 50000,
-          currency: "INR",
-        }),
-      });
-
-      const order = await response.json();
-
-      if (!response.ok) {
-        throw new Error(order.error || "Failed to create order");
-      }
-
-      setStatus("Opening Razorpay...");
-
-      const options = {
-        key: order.key_id,
-        amount: order.amount,
-        currency: order.currency,
-        name: "Revenue Recovery Agent",
-        description: "Test Payment",
-        order_id: order.id,
-
-        handler: function (response: any) {
-          console.log("Payment successful:", response);
-
-          setStatus(
-            `Payment successful: ${response.razorpay_payment_id}`
-          );
-        },
-
-        modal: {
-          ondismiss: function () {
-            setStatus("Payment window closed.");
-          },
-        },
-      };
-
-      const razorpay = new window.Razorpay(options);
-
-      razorpay.open();
-    } catch (error) {
-      console.error(error);
-      setStatus("Something went wrong.");
-    }
-  };
+  const fallbackAtRiskAmount = cases.reduce(
+    (sum, c) => sum + c.failedPayment.payment.amount,
+    0
+  );
+  const pendingCount = cases.filter((c) => c.status === "pending").length;
+  const selectedCase = cases.find((c) => c.internalId === selectedCaseId) ?? null;
 
   return (
-    <div className="app">
-      <h1>Revenue Recovery Agent</h1>
+    <div className="dashboard">
+      <header className="dashboard__header">
+        <span className="dashboard__eyebrow">Razorpay AI Buildathon — Revenue Recovery</span>
+        <h1 className="dashboard__title">Recovery Console</h1>
+      </header>
 
-      <p>Razorpay Test Payment</p>
+      <SummaryBar summary={summary} fallbackAtRiskAmount={fallbackAtRiskAmount} />
 
-      <button onClick={handlePayment}>
-        Pay ₹500
-      </button>
+      <ActionBar
+        onFetchPayments={fetchPayments}
+        onAnalyzeAll={analyzeAll}
+        isLoadingPayments={isLoadingPayments}
+        isAnalyzingAll={isAnalyzingAll}
+        caseCount={cases.length}
+        pendingCount={pendingCount}
+        loadError={loadError}
+      />
 
-      {status && <p>{status}</p>}
+      <InterventionsSpotlight
+        interventions={interventions}
+        onViewAudit={setSelectedCaseId}
+      />
+
+      <PaymentsTable
+        cases={cases}
+        onAnalyzeOne={analyzeOne}
+        onViewAudit={setSelectedCaseId}
+      />
+
+      <AuditTrailModal
+        recoveryCase={selectedCase}
+        onClose={() => setSelectedCaseId(null)}
+      />
     </div>
   );
 }

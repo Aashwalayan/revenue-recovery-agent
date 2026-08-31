@@ -1,0 +1,47 @@
+:root {
+  /* Color */
+  --color-paper: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-ink: #14171f;
+  --color-ink-muted: #5b6472;
+  --color-ink-faint: #8b93a1;
+  --color-border: #dfe3ea;
+  --color-border-strong: #c4cad4;
+
+  /* AI proposal vs. policy override — the whole thesis of this app */
+  --color-proposal: #6366f1;
+  --color-proposal-wash: #eef0fe;
+  --color-override: #b42318;
+  --color-override-wash: #fbeae8;
+  --color-override-border: #f0c6c1;
+
+  /* Recovered $ / healthy state */
+  --color-recovered: #0f766e;
+  --color-recovered-wash: #e8f5f3;
+
+  /* Pending / neutral status */
+  --color-pending: #92610a;
+  --color-pending-wash: #fdf3e2;
+
+  --color-error: #b42318;
+
+  /* Type */
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 23, 31, 0.06);
+  --shadow-md: 0 4px 16px rgba(20, 23, 31, 0.08);
+}

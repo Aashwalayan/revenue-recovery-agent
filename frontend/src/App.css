@@ -1,25 +1,43 @@
-.app {
-  min-height: 100vh;
+@import "./styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-7);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  font-family: Arial, sans-serif;
+  gap: var(--space-5);
 }
 
-.app h1 {
+.dashboard__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dashboard__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.dashboard__title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
   margin: 0;
-}
-
-.app button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.app button:hover {
-  opacity: 0.85;
+  color: var(--color-ink);
 }

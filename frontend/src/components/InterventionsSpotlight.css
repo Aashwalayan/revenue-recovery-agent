@@ -1,0 +1,76 @@
+.interventions {
+  background: var(--color-override-wash);
+  border: 1px solid var(--color-override-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.interventions__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.interventions__title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-override);
+  margin: 0;
+}
+
+.interventions__subtitle {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  margin: 0;
+  max-width: 640px;
+}
+
+.interventions__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.intervention-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-override-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  font: inherit;
+}
+
+.intervention-card:hover {
+  border-color: var(--color-override);
+  box-shadow: var(--shadow-sm);
+}
+
+.intervention-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.intervention-card__amount {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.intervention-card__id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-ink-faint);
+  text-transform: uppercase;
+}

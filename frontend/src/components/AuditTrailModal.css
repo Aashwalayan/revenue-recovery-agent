@@ -1,0 +1,153 @@
+.audit-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 23, 31, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.audit-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.audit-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.audit-modal__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+.audit-modal__title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: var(--space-1) 0 0;
+}
+
+.audit-modal__close {
+  font-size: 22px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.audit-modal__close:hover {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.audit-modal__decision {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.audit-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.audit-timeline__item {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+
+.audit-timeline__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+}
+
+.audit-timeline__item--override:not(:last-child)::before {
+  background: var(--color-override-border);
+}
+
+.audit-timeline__marker {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-top: 3px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-proposal);
+}
+
+.audit-timeline__item--override .audit-timeline__marker {
+  border-color: var(--color-override);
+  background: var(--color-override);
+}
+
+.audit-timeline__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.audit-timeline__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.audit-timeline__step {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.audit-timeline__item--override .audit-timeline__step {
+  color: var(--color-override);
+}
+
+.audit-timeline__timestamp {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-faint);
+  white-space: nowrap;
+}
+
+.audit-timeline__detail {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  margin: 2px 0 0;
+}
