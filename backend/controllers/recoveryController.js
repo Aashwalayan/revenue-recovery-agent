@@ -20,6 +20,14 @@ const getFailedPayments = async (req, res) => {
             (payment) => payment.status === "failed"
         );
 
+        console.log(
+            raw.items.map((p) => ({
+                id: p.id,
+                status: p.status,
+                amount: p.amount
+            }))
+        );
+
         const normalized = failed.map(normalizePayment);
 
         store.setFailedPayments(normalized);
@@ -36,6 +44,8 @@ const getFailedPayments = async (req, res) => {
         });
     }
 };
+
+
 
 /**
  * POST /api/recovery/analyze/:id
@@ -85,8 +95,8 @@ const batchAnalyze = async (req, res) => {
 
         const candidates = requestedIds
             ? requestedIds
-                  .map((id) => store.getFailedPaymentById(id))
-                  .filter(Boolean)
+                .map((id) => store.getFailedPaymentById(id))
+                .filter(Boolean)
             : store.getFailedPayments();
 
         const results = [];

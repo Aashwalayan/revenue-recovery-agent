@@ -12,8 +12,16 @@ const failedPayments = new Map();
 const decisions = new Map();
 
 const setFailedPayments = (payments) => {
+    failedPayments.clear();
+
     for (const payment of payments) {
         failedPayments.set(payment.internalId, payment);
+    }
+
+    for (const [id] of decisions) {
+        if (!failedPayments.has(id)) {
+            decisions.delete(id);
+        }
     }
 };
 
