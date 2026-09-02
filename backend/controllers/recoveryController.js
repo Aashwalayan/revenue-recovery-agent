@@ -24,7 +24,11 @@ const getFailedPayments = async (req, res) => {
             raw.items.map((p) => ({
                 id: p.id,
                 status: p.status,
-                amount: p.amount
+                amount: p.amount,
+                error_code: p.error_code,
+                error_reason: p.error_reason,
+                error_source: p.error_source,
+                error_step: p.error_step
             }))
         );
 

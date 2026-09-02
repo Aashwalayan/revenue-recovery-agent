@@ -12,15 +12,25 @@ const postCheck = (failedPayment, category, agentProposal) => {
         };
     }
 
-    
+    // Hard constraint: policy marks this category as non-recoverable.
+    if (
+        Object.prototype.hasOwnProperty.call(failureCategories, category) &&
+        failureCategories[category].defaultRecoverable === false
+    ) {
+        const defaultAction = failureCategories[category].defaultAction;
+
+        return {
+            finalAction: defaultAction,
+            overridden: agentProposal.proposedAction !== defaultAction,
+            overrideReason: "category_not_recoverable"
+        };
+    }
 
     const limit = Object.prototype.hasOwnProperty.call(failureCategories, category)
         ? failureCategories[category].retryPolicy.maxAttempts
         : null;
 
-    // Hard constraint: retry limit exceeded. This applies regardless of
-    // what the agent proposed -- a hard rule can't depend on whether the
-    // agent's wording happens to contain "retry".
+    // Hard constraint: retry limit exceeded
     if (
         limit !== null &&
         limit !== undefined &&

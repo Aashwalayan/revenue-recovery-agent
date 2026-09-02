@@ -89,7 +89,7 @@ const failureCategories = {
         defaultRecoverable: false,
         defaultAction: "escalate",
         retryPolicy: {
-            maxAttempts: 0
+            maxAttempts: null
         },
         priority: "medium"
     }
