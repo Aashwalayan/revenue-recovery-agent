@@ -7,7 +7,7 @@ const normalizePayment = (payment) => {
         payment: {
             razorpayPaymentId: payment.id,
             razorpayOrderId: payment.order_id,
-            amount: payment.amount / 100,
+            amount: payment.amount,
             currency: payment.currency,
             method: payment.method,
             status: payment.status
