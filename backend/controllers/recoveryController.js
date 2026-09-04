@@ -456,6 +456,15 @@ const getSummary = (req, res) => {
         (record) => record.execution.status === "success"
     );
 
+    const recoveredExecutions = executions.filter(
+        (record) => record.recovery?.status === "recovered"
+    );
+
+    const recoveredAmount = recoveredExecutions.reduce(
+        (sum, record) => sum + (record.recovery.amount || 0),
+        0
+    );
+
     const actionedAmount = successfulExecutions.reduce(
         (sum, record) => sum + (record.failedPayment.payment.amount || 0),
         0
@@ -493,7 +502,14 @@ const getSummary = (req, res) => {
         executedCount: executions.length,
         linksCreatedCount,
         escalationsQueuedCount,
-        executionFailedCount
+        executionFailedCount,
+
+        recoveredCount: recoveredExecutions.length,
+        recoveredAmount,
+        recoveryRate:
+            totalAtRiskAmount > 0
+                ? recoveredAmount / totalAtRiskAmount
+                : 0,
     });
 };
 

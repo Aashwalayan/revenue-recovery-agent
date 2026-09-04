@@ -130,6 +130,45 @@ const getAllExecutions = () => {
     return Array.from(executions.values());
 };
 
+const markPaymentLinkRecovered = (
+    paymentLinkId,
+    referenceId,
+    payment
+) => {
+    for (const record of executions.values()) {
+        const matchesPaymentLink =
+            record.execution?.paymentLink?.id === paymentLinkId;
+
+        const matchesReferenceId =
+            record.failedPayment?.internalId === referenceId;
+
+        if (matchesPaymentLink || matchesReferenceId) {
+            if (record.recovery?.status === "recovered") {
+                return {
+                    ...record,
+                    alreadyRecovered: true
+                };
+            }
+
+            record.recovery = {
+                status: "recovered",
+                razorpayPaymentId: payment.razorpayPaymentId,
+                amount: payment.amount,
+                currency: payment.currency,
+                method: payment.method,
+                recoveredAt: payment.paidAt
+            };
+
+            return {
+                ...record,
+                alreadyRecovered: false
+            };
+        }
+    }
+
+    return null;
+};
+
 const clear = () => {
     failedPayments.clear();
     decisions.clear();
@@ -146,5 +185,6 @@ module.exports = {
     saveExecution,
     getExecution,
     getAllExecutions,
+    markPaymentLinkRecovered,
     clear
 };
