@@ -56,7 +56,30 @@ const validateProposal = (proposal) => {
     };
 };
 
+const sanitizeAlternatives = (alternatives, proposedAction) => {
+    if (!Array.isArray(alternatives)) return [];
+
+    return alternatives
+        .filter(
+            (alt) =>
+                alt &&
+                typeof alt === "object" &&
+                typeof alt.action === "string" &&
+                alt.action !== proposedAction &&
+                allowedActions.includes(alt.action)
+        )
+        .map((alt) => ({
+            action: alt.action,
+            confidence:
+                typeof alt.confidence === "number" ? alt.confidence : null,
+            reasoning:
+                typeof alt.reasoning === "string" ? alt.reasoning : ""
+        }))
+        .slice(0, 3);
+};
+
 module.exports = {
     validateProposal,
-    allowedActions
+    allowedActions,
+    sanitizeAlternatives
 };

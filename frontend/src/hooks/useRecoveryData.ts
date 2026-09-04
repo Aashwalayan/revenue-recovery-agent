@@ -3,11 +3,19 @@ import {
   ApiError,
   analyzePayment,
   batchAnalyze,
+  executeBatch,
+  executeCase,
   fetchDecisions,
+  fetchExecutions,
   fetchFailedPayments,
   fetchSummary,
 } from "../api/recoveryApi";
-import type { DecisionRecord, RecoveryCase, Summary } from "../types/recovery";
+import type {
+  DecisionRecord,
+  ExecutionRecord,
+  RecoveryCase,
+  Summary,
+} from "../types/recovery";
 
 function toPendingCase(failedPayment: RecoveryCase["failedPayment"]): RecoveryCase {
   return {
@@ -16,6 +24,9 @@ function toPendingCase(failedPayment: RecoveryCase["failedPayment"]): RecoveryCa
     decision: null,
     analyzedAt: null,
     status: "pending",
+    execution: null,
+    executedAt: null,
+    executionStatus: "not_executed",
   };
 }
 
@@ -26,6 +37,21 @@ function toAnalyzedCase(record: DecisionRecord): RecoveryCase {
     decision: record.decision,
     analyzedAt: record.analyzedAt,
     status: "analyzed",
+    execution: null,
+    executedAt: null,
+    executionStatus: "not_executed",
+  };
+}
+
+function applyExecution(
+  base: RecoveryCase,
+  record: ExecutionRecord
+): RecoveryCase {
+  return {
+    ...base,
+    execution: record.execution,
+    executedAt: record.executedAt,
+    executionStatus: "executed",
   };
 }
 
@@ -37,6 +63,7 @@ export function useRecoveryData() {
 
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+  const [isExecutingAll, setIsExecutingAll] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const refreshSummary = useCallback(async () => {
@@ -50,27 +77,58 @@ export function useRecoveryData() {
     }
   }, []);
 
-  // On mount, pick up any decisions the backend already has (e.g. from an
-  // earlier analyze/batch-analyze call before a page reload) so the UI
-  // reflects the true current server state, not just this session's clicks.
+  // On mount, pick up any decisions AND executions the backend already
+  // has (e.g. from earlier calls before a page reload), in that order,
+  // so the UI reflects true current server state rather than just this
+  // session's clicks. Sequenced (not two independent effects) so
+  // executions merge onto an already-populated case list.
   useEffect(() => {
-    fetchDecisions()
-      .then(({ decisions }) => {
-        if (decisions.length === 0) return;
+    (async () => {
+      try {
+        const { decisions } = await fetchDecisions();
 
-        setCasesById((prev) => {
-          const next = new Map(prev);
-          for (const record of decisions) {
-            next.set(record.failedPayment.internalId, toAnalyzedCase(record));
-          }
-          return next;
-        });
+        if (decisions.length > 0) {
+          setCasesById((prev) => {
+            const next = new Map(prev);
+            for (const record of decisions) {
+              next.set(record.failedPayment.internalId, toAnalyzedCase(record));
+            }
+            return next;
+          });
+        }
 
-        refreshSummary();
-      })
-      .catch((err) => {
-        console.error("Failed to load existing decisions:", err);
-      });
+        const { executions } = await fetchExecutions();
+
+        if (executions.length > 0) {
+          setCasesById((prev) => {
+            const next = new Map(prev);
+            for (const record of executions) {
+              const id = record.failedPayment.internalId;
+              const base: RecoveryCase =
+                next.get(id) ??
+                {
+                  internalId: id,
+                  failedPayment: record.failedPayment,
+                  decision: record.decision,
+                  analyzedAt: null,
+                  status: "analyzed",
+                  execution: null,
+                  executedAt: null,
+                  executionStatus: "not_executed",
+                };
+              next.set(id, applyExecution(base, record));
+            }
+            return next;
+          });
+        }
+
+        if (decisions.length > 0 || executions.length > 0) {
+          await refreshSummary();
+        }
+      } catch (err) {
+        console.error("Failed to load existing decisions/executions:", err);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -187,6 +245,94 @@ export function useRecoveryData() {
     }
   }, [refreshSummary]);
 
+  const executeOne = useCallback(
+    async (internalId: string) => {
+      setCasesById((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(internalId);
+        if (existing) {
+          next.set(internalId, { ...existing, executionStatus: "executing" });
+        }
+        return next;
+      });
+
+      try {
+        const record = await executeCase(internalId);
+
+        setCasesById((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(internalId);
+          if (existing) {
+            next.set(internalId, applyExecution(existing, record));
+          }
+          return next;
+        });
+
+        await refreshSummary();
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : "Could not reach the backend to execute this case.";
+
+        setCasesById((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(internalId);
+          if (existing) {
+            next.set(internalId, {
+              ...existing,
+              executionStatus: "execution_error",
+              executionError: message,
+            });
+          }
+          return next;
+        });
+      }
+    },
+    [refreshSummary]
+  );
+
+  const executeAll = useCallback(async () => {
+    setIsExecutingAll(true);
+    setLoadError(null);
+
+    setCasesById((prev) => {
+      const next = new Map(prev);
+      for (const [id, c] of next) {
+        if (c.status === "analyzed" && c.executionStatus === "not_executed") {
+          next.set(id, { ...c, executionStatus: "executing" });
+        }
+      }
+      return next;
+    });
+
+    try {
+      const { results } = await executeBatch();
+
+      setCasesById((prev) => {
+        const next = new Map(prev);
+        for (const record of results) {
+          const id = record.failedPayment.internalId;
+          const existing = next.get(id);
+          if (existing) {
+            next.set(id, applyExecution(existing, record));
+          }
+        }
+        return next;
+      });
+
+      await refreshSummary();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Could not reach the backend to run batch execution.";
+      setLoadError(message);
+    } finally {
+      setIsExecutingAll(false);
+    }
+  }, [refreshSummary]);
+
   const cases = useMemo(
     () =>
       Array.from(casesById.values()).sort(
@@ -206,10 +352,13 @@ export function useRecoveryData() {
     summary,
     isLoadingPayments,
     isAnalyzingAll,
+    isExecutingAll,
     loadError,
     fetchPayments,
     analyzeOne,
     analyzeAll,
+    executeOne,
+    executeAll,
     refreshSummary,
   };
 }

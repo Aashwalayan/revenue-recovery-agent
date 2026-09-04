@@ -14,10 +14,13 @@ function App() {
     summary,
     isLoadingPayments,
     isAnalyzingAll,
+    isExecutingAll,
     loadError,
     fetchPayments,
     analyzeOne,
     analyzeAll,
+    executeOne,
+    executeAll,
   } = useRecoveryData();
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
@@ -27,6 +30,9 @@ function App() {
     0
   );
   const pendingCount = cases.filter((c) => c.status === "pending").length;
+  const executableCount = cases.filter(
+    (c) => c.status === "analyzed" && c.executionStatus === "not_executed"
+  ).length;
   const selectedCase = cases.find((c) => c.internalId === selectedCaseId) ?? null;
 
   return (
@@ -41,10 +47,13 @@ function App() {
       <ActionBar
         onFetchPayments={fetchPayments}
         onAnalyzeAll={analyzeAll}
+        onExecuteAll={executeAll}
         isLoadingPayments={isLoadingPayments}
         isAnalyzingAll={isAnalyzingAll}
+        isExecutingAll={isExecutingAll}
         caseCount={cases.length}
         pendingCount={pendingCount}
+        executableCount={executableCount}
         loadError={loadError}
       />
 
@@ -56,12 +65,14 @@ function App() {
       <PaymentsTable
         cases={cases}
         onAnalyzeOne={analyzeOne}
+        onExecuteOne={executeOne}
         onViewAudit={setSelectedCaseId}
       />
 
       <AuditTrailModal
         recoveryCase={selectedCase}
         onClose={() => setSelectedCaseId(null)}
+        onExecute={executeOne}
       />
     </div>
   );

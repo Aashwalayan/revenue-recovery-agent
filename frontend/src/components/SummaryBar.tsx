@@ -20,14 +20,25 @@ export function SummaryBar({ summary, fallbackAtRiskAmount }: SummaryBarProps) {
       tone: "neutral" as const,
     },
     {
-      label: "Recovered",
-      value: summary ? formatInr(summary.recoveredAmount) : "—",
+      // Real: an actual Razorpay Payment Link or escalation was created.
+      // Still not "customer paid" -- that needs a webhook -- but it's a
+      // genuine record of work done, not a projection.
+      label: "Actioned",
+      value: summary ? formatInr(summary.actionedAmount) : "—",
       tone: "recovered" as const,
     },
     {
-      label: "Recovery rate",
-      value: summary ? formatPercent(summary.recoveryRate) : "—",
-      tone: "recovered" as const,
+      // Projection: the pipeline judged these recoverable and proposed
+      // an active action, whether or not anything has been executed
+      // yet. Labeled "(est.)" so it can't be mistaken for a real result.
+      label: "Est. recoverable (proj.)",
+      value: summary ? formatInr(summary.estimatedRecoverableAmount) : "—",
+      tone: "estimate" as const,
+    },
+    {
+      label: "Est. recovery rate (proj.)",
+      value: summary ? formatPercent(summary.estimatedRecoveryRate) : "—",
+      tone: "estimate" as const,
     },
     {
       label: "Policy interventions",

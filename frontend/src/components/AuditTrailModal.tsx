@@ -2,19 +2,23 @@ import type { RecoveryCase } from "../types/recovery";
 import { formatInr, formatTimelineStep, formatTimestamp } from "../utils/format";
 import { ActionTransition } from "./ActionTransition";
 import { OverrideBadge } from "./OverrideBadge";
+import { ExecutionResult } from "./ExecutionResult";
+import { AlternativesConsidered } from "./AlternativesConsidered";
 import "./AuditTrailModal.css";
 
 interface AuditTrailModalProps {
   recoveryCase: RecoveryCase | null;
   onClose: () => void;
+  onExecute: (internalId: string) => void;
 }
 
-export function AuditTrailModal({ recoveryCase, onClose }: AuditTrailModalProps) {
+export function AuditTrailModal({ recoveryCase, onClose, onExecute }: AuditTrailModalProps) {
   if (!recoveryCase || !recoveryCase.decision) {
     return null;
   }
 
-  const { failedPayment, decision, internalId } = recoveryCase;
+  const { failedPayment, decision, internalId, execution, executionStatus, executionError } =
+    recoveryCase;
   const overridden = decision.actionOverridden;
 
   return (
@@ -47,6 +51,8 @@ export function AuditTrailModal({ recoveryCase, onClose }: AuditTrailModalProps)
           {overridden && <OverrideBadge reason={decision.overrideReason} />}
         </div>
 
+        <AlternativesConsidered alternatives={decision.alternativesConsidered} />
+
         <ol className="audit-timeline">
           {decision.timeline.map((entry, i) => {
             const isOverridePoint =
@@ -76,6 +82,31 @@ export function AuditTrailModal({ recoveryCase, onClose }: AuditTrailModalProps)
             );
           })}
         </ol>
+
+        <div className="audit-modal__execution">
+          <h3 className="audit-modal__execution-title">Execution</h3>
+          {executionStatus === "executed" && execution && (
+            <ExecutionResult execution={execution} />
+          )}
+          {executionStatus === "executing" && (
+            <span className="payments-row__waiting">Executing…</span>
+          )}
+          {(executionStatus === "not_executed" || executionStatus === "execution_error") && (
+            <div className="audit-modal__execute-row">
+              {executionStatus === "execution_error" && (
+                <span className="execution-result execution-result--failed">
+                  {executionError}
+                </span>
+              )}
+              <button
+                className="payments-row__btn payments-row__btn--accent"
+                onClick={() => onExecute(internalId)}
+              >
+                {executionStatus === "execution_error" ? "Retry execute" : "Execute now"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

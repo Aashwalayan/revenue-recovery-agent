@@ -2,15 +2,22 @@ import type { RecoveryCase } from "../types/recovery";
 import { formatInr } from "../utils/format";
 import { ActionTransition } from "./ActionTransition";
 import { OverrideBadge } from "./OverrideBadge";
+import { ExecutionResult } from "./ExecutionResult";
 import "./PaymentsTable.css";
 
 interface PaymentsTableProps {
   cases: RecoveryCase[];
   onAnalyzeOne: (internalId: string) => void;
+  onExecuteOne: (internalId: string) => void;
   onViewAudit: (internalId: string) => void;
 }
 
-export function PaymentsTable({ cases, onAnalyzeOne, onViewAudit }: PaymentsTableProps) {
+export function PaymentsTable({
+  cases,
+  onAnalyzeOne,
+  onExecuteOne,
+  onViewAudit,
+}: PaymentsTableProps) {
   if (cases.length === 0) {
     return (
       <div className="payments-table__empty">
@@ -31,6 +38,7 @@ export function PaymentsTable({ cases, onAnalyzeOne, onViewAudit }: PaymentsTabl
             <th>Failure category</th>
             <th>AI proposed → Final decision</th>
             <th>Status</th>
+            <th>Execution</th>
             <th aria-label="Actions" />
           </tr>
         </thead>
@@ -40,6 +48,7 @@ export function PaymentsTable({ cases, onAnalyzeOne, onViewAudit }: PaymentsTabl
               key={c.internalId}
               recoveryCase={c}
               onAnalyzeOne={onAnalyzeOne}
+              onExecuteOne={onExecuteOne}
               onViewAudit={onViewAudit}
             />
           ))}
@@ -52,11 +61,26 @@ export function PaymentsTable({ cases, onAnalyzeOne, onViewAudit }: PaymentsTabl
 interface PaymentRowProps {
   recoveryCase: RecoveryCase;
   onAnalyzeOne: (internalId: string) => void;
+  onExecuteOne: (internalId: string) => void;
   onViewAudit: (internalId: string) => void;
 }
 
-function PaymentRow({ recoveryCase, onAnalyzeOne, onViewAudit }: PaymentRowProps) {
-  const { failedPayment, decision, status, internalId, error } = recoveryCase;
+function PaymentRow({
+  recoveryCase,
+  onAnalyzeOne,
+  onExecuteOne,
+  onViewAudit,
+}: PaymentRowProps) {
+  const {
+    failedPayment,
+    decision,
+    status,
+    internalId,
+    error,
+    execution,
+    executionStatus,
+    executionError,
+  } = recoveryCase;
   const overridden = decision?.actionOverridden === true;
 
   return (
@@ -104,6 +128,25 @@ function PaymentRow({ recoveryCase, onAnalyzeOne, onViewAudit }: PaymentRowProps
           <span className="status-pill status-pill--ok">Policy approved</span>
         )}
       </td>
+      <td>
+        {executionStatus === "executing" && (
+          <span className="status-pill status-pill--analyzing">Executing…</span>
+        )}
+        {executionStatus === "execution_error" && (
+          <span className="status-pill status-pill--error" title={executionError}>
+            Failed
+          </span>
+        )}
+        {executionStatus === "executed" && execution && (
+          <ExecutionResult execution={execution} />
+        )}
+        {executionStatus === "not_executed" && status === "analyzed" && (
+          <span className="payments-row__waiting">Not executed</span>
+        )}
+        {status !== "analyzed" && executionStatus === "not_executed" && (
+          <span className="payments-row__waiting">—</span>
+        )}
+      </td>
       <td className="payments-row__actions" onClick={(e) => e.stopPropagation()}>
         {status === "pending" && (
           <button className="payments-row__btn" onClick={() => onAnalyzeOne(internalId)}>
@@ -116,9 +159,22 @@ function PaymentRow({ recoveryCase, onAnalyzeOne, onViewAudit }: PaymentRowProps
           </button>
         )}
         {status === "analyzed" && (
-          <button className="payments-row__btn payments-row__btn--ghost" onClick={() => onViewAudit(internalId)}>
-            View audit trail
-          </button>
+          <div className="payments-row__action-group">
+            <button
+              className="payments-row__btn payments-row__btn--ghost"
+              onClick={() => onViewAudit(internalId)}
+            >
+              Audit trail
+            </button>
+            {(executionStatus === "not_executed" || executionStatus === "execution_error") && (
+              <button
+                className="payments-row__btn payments-row__btn--accent"
+                onClick={() => onExecuteOne(internalId)}
+              >
+                {executionStatus === "execution_error" ? "Retry execute" : "Execute"}
+              </button>
+            )}
+          </div>
         )}
       </td>
     </tr>

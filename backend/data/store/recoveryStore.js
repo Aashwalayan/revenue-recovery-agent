@@ -7,6 +7,7 @@
 
 const failedPayments = new Map();
 const decisions = new Map();
+const executions = new Map();
 
 const setFailedPayments = (payments) => {
     failedPayments.clear();
@@ -66,10 +67,16 @@ const setFailedPayments = (payments) => {
         failedPayments.set(payment.internalId, payment);
     }
 
-    // Remove decisions for payments no longer present.
+    // Remove decisions/executions for payments no longer present.
     for (const [id] of decisions) {
         if (!failedPayments.has(id)) {
             decisions.delete(id);
+        }
+    }
+
+    for (const [id] of executions) {
+        if (!failedPayments.has(id)) {
+            executions.delete(id);
         }
     }
 };
@@ -102,9 +109,31 @@ const getAllDecisions = () => {
     return Array.from(decisions.values());
 };
 
+const saveExecution = (id, failedPayment, decision, execution) => {
+    const record = {
+        failedPayment,
+        decision,
+        execution,
+        executedAt: new Date().toISOString()
+    };
+
+    executions.set(id, record);
+
+    return record;
+};
+
+const getExecution = (id) => {
+    return executions.get(id) || null;
+};
+
+const getAllExecutions = () => {
+    return Array.from(executions.values());
+};
+
 const clear = () => {
     failedPayments.clear();
     decisions.clear();
+    executions.clear();
 };
 
 module.exports = {
@@ -114,5 +143,8 @@ module.exports = {
     saveDecision,
     getDecision,
     getAllDecisions,
+    saveExecution,
+    getExecution,
+    getAllExecutions,
     clear
 };

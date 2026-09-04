@@ -1,6 +1,7 @@
 const classify = require("../taxonomy/classify");
 const preCheck = require("../rules/preCheck");
 const llmRecoveryAgent = require("../agents/llmRecoveryAgent");
+const { sanitizeAlternatives } = require("../agents/proposalSchema");
 const postCheck = require("../rules/postCheck");
 
 async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}) {
@@ -39,6 +40,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
             recoverable: null,
             confidence: null,
             agentProposedAction: null,
+            alternativesConsidered: [],
             finalAction: preCheckResult.action,
             actionOverridden: true,
             overrideReason: preCheckResult.reason,
@@ -95,6 +97,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
             recoverable: null,
             confidence: null,
             agentProposedAction: null,
+            alternativesConsidered: [],
             finalAction: "escalate",
             actionOverridden: true,
             overrideReason,
@@ -129,6 +132,10 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
         recoverable: agentProposal.recoverable,
         confidence: agentProposal.confidence,
         agentProposedAction: agentProposal.proposedAction,
+        alternativesConsidered: sanitizeAlternatives(
+            agentProposal.alternativesConsidered,
+            agentProposal.proposedAction
+        ),
         finalAction: finalDecision.finalAction,
         actionOverridden: finalDecision.overridden,
         overrideReason: finalDecision.overrideReason,

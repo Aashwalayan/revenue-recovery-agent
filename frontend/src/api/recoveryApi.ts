@@ -2,6 +2,9 @@ import type {
   BatchAnalyzeResponse,
   DecisionRecord,
   DecisionsResponse,
+  ExecuteBatchResponse,
+  ExecutionRecord,
+  ExecutionsResponse,
   FailedPaymentsResponse,
   Summary,
 } from "../types/recovery";
@@ -74,6 +77,31 @@ export async function fetchDecisions(): Promise<DecisionsResponse> {
 export async function fetchSummary(): Promise<Summary> {
   const response = await fetch(`${API_BASE}/summary`);
   return handleResponse<Summary>(response);
+}
+
+/** POST /api/recovery/execute/:id */
+export async function executeCase(internalId: string): Promise<ExecutionRecord> {
+  const response = await fetch(
+    `${API_BASE}/execute/${encodeURIComponent(internalId)}`,
+    { method: "POST" }
+  );
+  return handleResponse<ExecutionRecord>(response);
+}
+
+/** POST /api/recovery/execute-batch */
+export async function executeBatch(ids?: string[]): Promise<ExecuteBatchResponse> {
+  const response = await fetch(`${API_BASE}/execute-batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(ids ? { ids } : {}),
+  });
+  return handleResponse<ExecuteBatchResponse>(response);
+}
+
+/** GET /api/recovery/executions */
+export async function fetchExecutions(): Promise<ExecutionsResponse> {
+  const response = await fetch(`${API_BASE}/executions`);
+  return handleResponse<ExecutionsResponse>(response);
 }
 
 export { ApiError };

@@ -6,7 +6,8 @@ const llmRecoveryAgent = async (failedPayment, failureCategory) => {
     const prompt = `
 You are a revenue recovery proposal agent.
 
-Your job is to analyze a failed payment and propose ONE recovery action.
+Your job is to analyze a failed payment and propose the best recovery
+action, while also naming other actions you considered and ruled out.
 
 You do NOT execute payments.
 You do NOT override customer consent or system policy.
@@ -25,10 +26,19 @@ Return ONLY valid JSON in this exact format:
     "recoverable": true,
     "confidence": 0,
     "proposedAction": "string",
-    "reasoning": "string"
+    "reasoning": "string",
+    "alternativesConsidered": [
+        { "action": "string", "confidence": 0, "reasoning": "string" }
+    ]
 }
 
-Allowed proposedAction values:
+alternativesConsidered should list 1-3 other plausible actions you
+weighed and did not choose, each with why it was a weaker fit than
+proposedAction. Omit proposedAction itself from this list. If truly
+only one action is plausible, return an empty array -- do not pad it
+with implausible options just to fill it.
+
+Allowed proposedAction / alternative action values:
 
 - retry_same_method
 - retry_after_delay

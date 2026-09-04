@@ -56,6 +56,11 @@
   color: var(--color-recovered);
 }
 
+.summary-bar__value--estimate {
+  color: var(--color-ink-muted);
+  font-style: italic;
+}
+
 .summary-bar__value--override {
   color: var(--color-override);
 }

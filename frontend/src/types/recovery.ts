@@ -88,12 +88,19 @@ export interface TimelineEntry {
   detail: string;
 }
 
+export interface AlternativeAction {
+  action: RecoveryAction;
+  confidence: number | null;
+  reasoning: string;
+}
+
 /** backend/services/recoveryPipeline.js return shape */
 export interface Decision {
   failureCategory: FailureCategory;
   recoverable: boolean | null;
   confidence: number | null;
   agentProposedAction: RecoveryAction | null;
+  alternativesConsidered: AlternativeAction[];
   finalAction: RecoveryAction;
   actionOverridden: boolean;
   overrideReason: OverrideReason;
@@ -125,19 +132,73 @@ export interface DecisionsResponse {
   decisions: DecisionRecord[];
 }
 
+/** backend/services/executionService.js return shape */
+export type ExecutionKind = "payment_link" | "escalation" | "no_action" | "unsupported";
+export type ExecutionStatus = "success" | "failed";
+
+export interface Execution {
+  kind: ExecutionKind;
+  status: ExecutionStatus;
+  paymentLink?: {
+    id: string;
+    shortUrl: string;
+    amount: number;
+    currency: string;
+    status: string;
+  };
+  escalation?: {
+    internalId: string;
+    amount: number;
+    currency: string;
+    failureCategory: FailureCategory;
+    overrideReason: OverrideReason;
+    queuedAt: string;
+  };
+  detail?: string;
+  error?: string;
+  executedAt: string;
+}
+
+/** Stored/returned by GET /api/recovery/executions and the execute endpoints */
+export interface ExecutionRecord {
+  failedPayment: FailedPayment;
+  decision: Decision;
+  execution: Execution;
+  executedAt: string;
+  alreadyExecuted?: boolean;
+}
+
+/** POST /api/recovery/execute-batch response */
+export interface ExecuteBatchResponse {
+  count: number;
+  results: ExecutionRecord[];
+}
+
+/** GET /api/recovery/executions response */
+export interface ExecutionsResponse {
+  count: number;
+  executions: ExecutionRecord[];
+}
+
 /** GET /api/recovery/summary response */
 export interface Summary {
   totalAtRiskAmount: number;
   analyzedCount: number;
-  recoveredCount: number;
-  recoveredAmount: number;
-  recoveryRate: number;
+  estimatedRecoverableCount: number;
+  estimatedRecoverableAmount: number;
+  estimatedRecoveryRate: number;
   interventionsCount: number;
+  actionedCount: number;
+  actionedAmount: number;
+  executedCount: number;
+  linksCreatedCount: number;
+  escalationsQueuedCount: number;
+  executionFailedCount: number;
 }
 
 /**
  * Frontend-only merged view used to drive the table: a failed payment
- * that may or may not have been analyzed yet. Not a backend shape.
+ * that may or may not have been analyzed/executed yet. Not a backend shape.
  */
 export interface RecoveryCase {
   internalId: string;
@@ -146,4 +207,8 @@ export interface RecoveryCase {
   analyzedAt: string | null;
   status: "pending" | "analyzing" | "analyzed" | "error";
   error?: string;
+  execution: Execution | null;
+  executedAt: string | null;
+  executionStatus: "not_executed" | "executing" | "executed" | "execution_error";
+  executionError?: string;
 }

@@ -2,12 +2,13 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: var(--shadow-sm);
 }
 
 .payments-table table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
 }
 
@@ -22,6 +23,7 @@
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-paper);
+  white-space: nowrap;
 }
 
 .payments-row {
@@ -142,6 +144,21 @@
 
 .payments-row__btn--ghost:hover {
   background: var(--color-proposal-wash);
+}
+
+.payments-row__action-group {
+  display: flex;
+  gap: 6px;
+}
+
+.payments-row__btn--accent {
+  background: var(--color-recovered);
+  color: var(--color-surface);
+  border-color: var(--color-recovered);
+}
+
+.payments-row__btn--accent:hover {
+  background: #0b5c56;
 }
 
 .payments-table__empty {

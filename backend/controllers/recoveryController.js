@@ -1,6 +1,7 @@
 const razorpay = require("../config/razorpay");
 const normalizePayment = require("../normalization/normalizePayments");
 const recoveryPipeline = require("../services/recoveryPipeline");
+const executeDecision = require("../services/executionService");
 const store = require("../data/store/recoveryStore");
 
 /**
@@ -20,18 +21,6 @@ const getFailedPayments = async (req, res) => {
             (payment) => payment.status === "failed"
         );
 
-        console.log(
-            raw.items.map((p) => ({
-                id: p.id,
-                status: p.status,
-                amount: p.amount,
-                error_code: p.error_code,
-                error_reason: p.error_reason,
-                error_source: p.error_source,
-                error_step: p.error_step
-            }))
-        );
-
         const normalized = failed.map(normalizePayment);
 
         store.setFailedPayments(normalized);
@@ -48,8 +37,6 @@ const getFailedPayments = async (req, res) => {
         });
     }
 };
-
-
 
 /**
  * POST /api/recovery/analyze/:id
@@ -145,16 +132,149 @@ const getDecisions = (req, res) => {
 };
 
 /**
+ * POST /api/recovery/execute/:id
+ *
+ * Human-in-the-loop execution: acts on an already-made decision for one
+ * case (creates a real Razorpay Payment Link, an escalation record, or
+ * a logged no-op, depending on finalAction). Idempotent -- if this case
+ * was already executed, returns the existing record instead of creating
+ * a second real payment link.
+ */
+const executeCase = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const existing = store.getExecution(id);
+        if (existing) {
+            return res.json({ ...existing, alreadyExecuted: true });
+        }
+
+        const decisionRecord = store.getDecision(id);
+        if (!decisionRecord) {
+            return res.status(404).json({
+                error: `No decision found for id "${id}". Analyze it first via /api/recovery/analyze/:id.`
+            });
+        }
+
+        const execution = await executeDecision(
+            decisionRecord.failedPayment,
+            decisionRecord.decision
+        );
+
+        const record = store.saveExecution(
+            id,
+            decisionRecord.failedPayment,
+            decisionRecord.decision,
+            execution
+        );
+
+        res.json({ ...record, alreadyExecuted: false });
+    } catch (error) {
+        console.error("Failed to execute case:", error);
+
+        res.status(500).json({
+            error: "Failed to execute case"
+        });
+    }
+};
+
+/**
+ * POST /api/recovery/execute-batch
+ *
+ * Executes every decided-but-not-yet-executed case (optionally limited
+ * to { ids: [...] } in the body). Skips (rather than re-executes) any
+ * case that already has an execution record.
+ */
+const executeBatch = async (req, res) => {
+    try {
+        const requestedIds = Array.isArray(req.body?.ids)
+            ? req.body.ids
+            : null;
+
+        const candidateIds = requestedIds
+            ? requestedIds
+            : store.getAllDecisions().map((r) => r.failedPayment.internalId);
+
+        const results = [];
+
+        for (const id of candidateIds) {
+            const existing = store.getExecution(id);
+            if (existing) {
+                results.push({ ...existing, alreadyExecuted: true });
+                continue;
+            }
+
+            const decisionRecord = store.getDecision(id);
+            if (!decisionRecord) {
+                continue;
+            }
+
+            const execution = await executeDecision(
+                decisionRecord.failedPayment,
+                decisionRecord.decision
+            );
+
+            const record = store.saveExecution(
+                id,
+                decisionRecord.failedPayment,
+                decisionRecord.decision,
+                execution
+            );
+
+            results.push({ ...record, alreadyExecuted: false });
+        }
+
+        res.json({
+            count: results.length,
+            results
+        });
+    } catch (error) {
+        console.error("Failed to batch-execute:", error);
+
+        res.status(500).json({
+            error: "Failed to batch-execute"
+        });
+    }
+};
+
+/**
+ * GET /api/recovery/executions
+ *
+ * Returns every {failedPayment, decision, execution, executedAt} record
+ * produced so far.
+ */
+const getExecutions = (req, res) => {
+    res.json({
+        count: store.getAllExecutions().length,
+        executions: store.getAllExecutions()
+    });
+};
+
+/**
  * GET /api/recovery/summary
  *
  * Computed live from whatever is currently in the store — never
- * hardcoded. "Recovered" = pipeline judged the case recoverable AND
- * the final action is an active recovery action (not do_not_retry
- * or escalate).
+ * hardcoded.
+ *
+ * IMPORTANT distinction between the two kinds of numbers here:
+ *
+ * - estimatedRecoverable* is a decision-level PROJECTION (the pipeline
+ *   judged the case recoverable and proposed an active action). It does
+ *   NOT mean anything actually happened yet -- a case counts here the
+ *   moment it's analyzed, even if it's never executed. Named
+ *   "estimated" deliberately so it can't be read as a completed outcome.
+ *
+ * - actioned* is the real, execution-level signal: cases where a real
+ *   action was actually taken (a real Razorpay Payment Link created, or
+ *   an escalation queued). This still isn't "the customer paid" --
+ *   that requires the customer to complete the link, which this
+ *   summary can't observe without a webhook -- but it's a genuine
+ *   record of work done, not a projection.
  */
 const getSummary = (req, res) => {
     const failedPayments = store.getFailedPayments();
     const decisions = store.getAllDecisions();
+    const executions = store.getAllExecutions();
 
     const totalAtRiskAmount = failedPayments.reduce(
         (sum, p) => sum + (p.payment.amount || 0),
@@ -163,13 +283,13 @@ const getSummary = (req, res) => {
 
     const nonRecoveryActions = new Set(["do_not_retry", "escalate"]);
 
-    const recoveredDecisions = decisions.filter(
+    const estimatedRecoverableDecisions = decisions.filter(
         (record) =>
             record.decision.recoverable === true &&
             !nonRecoveryActions.has(record.decision.finalAction)
     );
 
-    const recoveredAmount = recoveredDecisions.reduce(
+    const estimatedRecoverableAmount = estimatedRecoverableDecisions.reduce(
         (sum, record) => sum + (record.failedPayment.payment.amount || 0),
         0
     );
@@ -178,16 +298,48 @@ const getSummary = (req, res) => {
         (record) => record.decision.actionOverridden === true
     ).length;
 
+    const successfulExecutions = executions.filter(
+        (record) => record.execution.status === "success"
+    );
+
+    const actionedAmount = successfulExecutions.reduce(
+        (sum, record) => sum + (record.failedPayment.payment.amount || 0),
+        0
+    );
+
+    const linksCreatedCount = executions.filter(
+        (record) => record.execution.kind === "payment_link" && record.execution.status === "success"
+    ).length;
+
+    const escalationsQueuedCount = executions.filter(
+        (record) => record.execution.kind === "escalation" && record.execution.status === "success"
+    ).length;
+
+    const executionFailedCount = executions.filter(
+        (record) => record.execution.status === "failed"
+    ).length;
+
     res.json({
         totalAtRiskAmount,
         analyzedCount: decisions.length,
-        recoveredCount: recoveredDecisions.length,
-        recoveredAmount,
-        recoveryRate:
+
+        // Projection -- decision-level, not observed
+        estimatedRecoverableCount: estimatedRecoverableDecisions.length,
+        estimatedRecoverableAmount,
+        estimatedRecoveryRate:
             totalAtRiskAmount > 0
-                ? recoveredAmount / totalAtRiskAmount
+                ? estimatedRecoverableAmount / totalAtRiskAmount
                 : 0,
-        interventionsCount
+
+        interventionsCount,
+
+        // Real -- execution-level, an actual action was taken
+        actionedCount: successfulExecutions.length,
+        actionedAmount,
+        executedCount: executions.length,
+        linksCreatedCount,
+        escalationsQueuedCount,
+        executionFailedCount
     });
 };
 
@@ -196,5 +348,8 @@ module.exports = {
     analyzePayment,
     batchAnalyze,
     getDecisions,
+    executeCase,
+    executeBatch,
+    getExecutions,
     getSummary
 };
