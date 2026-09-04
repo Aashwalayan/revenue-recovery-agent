@@ -104,4 +104,125 @@ export async function fetchExecutions(): Promise<ExecutionsResponse> {
   return handleResponse<ExecutionsResponse>(response);
 }
 
+interface AnalyzeStreamHandlers {
+  onBatchStart?: (total: number) => void;
+  onCaseStart?: (data: {
+    internalId: string;
+    index: number;
+    total: number;
+    amount: number;
+    currency: string;
+  }) => void;
+  onStep?: (data: {
+    internalId: string;
+    step: string;
+    timestamp: string;
+    detail: string;
+  }) => void;
+  onCaseComplete?: (record: DecisionRecord) => void;
+  onCaseError?: (data: { internalId: string; error: string }) => void;
+  onBatchComplete?: (count: number) => void;
+}
+
+/**
+ * GET /api/recovery/analyze-stream (Server-Sent Events)
+ *
+ * Live, per-step streaming version of batchAnalyze — real pipeline
+ * timing, not a client-side simulated playback. Returns a cleanup
+ * function; call it to close the connection early if needed.
+ */
+export function streamAnalyze(
+  handlers: AnalyzeStreamHandlers,
+  ids?: string[]
+): () => void {
+  const url = new URL(`${API_BASE}/analyze-stream`);
+  if (ids && ids.length > 0) {
+    url.searchParams.set("ids", ids.join(","));
+  }
+
+  const source = new EventSource(url.toString());
+
+  source.addEventListener("batch_start", (e) => {
+    const { total } = JSON.parse((e as MessageEvent).data);
+    handlers.onBatchStart?.(total);
+  });
+  source.addEventListener("case_start", (e) => {
+    handlers.onCaseStart?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("step", (e) => {
+    handlers.onStep?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("case_complete", (e) => {
+    handlers.onCaseComplete?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("case_error", (e) => {
+    handlers.onCaseError?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("batch_complete", (e) => {
+    const { count } = JSON.parse((e as MessageEvent).data);
+    handlers.onBatchComplete?.(count);
+    source.close();
+  });
+  source.onerror = () => {
+    source.close();
+  };
+
+  return () => source.close();
+}
+
+interface ExecuteStreamHandlers {
+  onBatchStart?: (total: number) => void;
+  onCaseStart?: (data: {
+    internalId: string;
+    index: number;
+    total: number;
+    finalAction: string;
+  }) => void;
+  onCaseComplete?: (record: ExecutionRecord) => void;
+  onCaseError?: (data: { internalId: string; error: string }) => void;
+  onBatchComplete?: (count: number) => void;
+}
+
+/**
+ * GET /api/recovery/execute-stream (Server-Sent Events)
+ *
+ * Live streaming version of executeBatch — one case_start/case_complete
+ * pair per case as it's actually executed against Razorpay.
+ */
+export function streamExecute(
+  handlers: ExecuteStreamHandlers,
+  ids?: string[]
+): () => void {
+  const url = new URL(`${API_BASE}/execute-stream`);
+  if (ids && ids.length > 0) {
+    url.searchParams.set("ids", ids.join(","));
+  }
+
+  const source = new EventSource(url.toString());
+
+  source.addEventListener("batch_start", (e) => {
+    const { total } = JSON.parse((e as MessageEvent).data);
+    handlers.onBatchStart?.(total);
+  });
+  source.addEventListener("case_start", (e) => {
+    handlers.onCaseStart?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("case_complete", (e) => {
+    handlers.onCaseComplete?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("case_error", (e) => {
+    handlers.onCaseError?.(JSON.parse((e as MessageEvent).data));
+  });
+  source.addEventListener("batch_complete", (e) => {
+    const { count } = JSON.parse((e as MessageEvent).data);
+    handlers.onBatchComplete?.(count);
+    source.close();
+  });
+  source.onerror = () => {
+    source.close();
+  };
+
+  return () => source.close();
+}
+
 export { ApiError };

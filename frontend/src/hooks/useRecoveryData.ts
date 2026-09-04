@@ -1,21 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   analyzePayment,
-  batchAnalyze,
-  executeBatch,
   executeCase,
   fetchDecisions,
   fetchExecutions,
   fetchFailedPayments,
   fetchSummary,
+  streamAnalyze,
+  streamExecute,
 } from "../api/recoveryApi";
 import type {
+  ActivityLogEntry,
+  ActivityTone,
   DecisionRecord,
   ExecutionRecord,
   RecoveryCase,
   Summary,
 } from "../types/recovery";
+import { formatInr } from "../utils/format";
+
+const MAX_LOG_ENTRIES = 300;
+let logIdCounter = 0;
+const nextLogId = () => `log_${++logIdCounter}`;
 
 function toPendingCase(failedPayment: RecoveryCase["failedPayment"]): RecoveryCase {
   return {
@@ -55,16 +62,47 @@ function applyExecution(
   };
 }
 
+/** Derives a log tone from a pipeline timeline step's own detail text. */
+function toneForStepDetail(detail: string): ActivityTone {
+  if (detail.includes("overrode") || detail.includes("Blocked")) return "override";
+  if (detail.includes("Agent failed")) return "error";
+  return "info";
+}
+
 export function useRecoveryData() {
   const [casesById, setCasesById] = useState<Map<string, RecoveryCase>>(
     new Map()
   );
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
   const [isExecutingAll, setIsExecutingAll] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const closeStreamRef = useRef<(() => void) | null>(null);
+
+  const logEvent = useCallback(
+    (message: string, tone: ActivityTone, internalId?: string) => {
+      setActivityLog((prev) => {
+        const next = [
+          ...prev,
+          {
+            id: nextLogId(),
+            timestamp: new Date().toISOString(),
+            internalId,
+            message,
+            tone,
+          },
+        ];
+        return next.length > MAX_LOG_ENTRIES
+          ? next.slice(next.length - MAX_LOG_ENTRIES)
+          : next;
+      });
+    },
+    []
+  );
 
   const refreshSummary = useCallback(async () => {
     try {
@@ -132,9 +170,15 @@ export function useRecoveryData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Close any open stream on unmount.
+  useEffect(() => {
+    return () => closeStreamRef.current?.();
+  }, []);
+
   const fetchPayments = useCallback(async () => {
     setIsLoadingPayments(true);
     setLoadError(null);
+    logEvent("Fetching failed payments from Razorpay Test Mode...", "info");
 
     try {
       const { failedPayments } = await fetchFailedPayments();
@@ -153,16 +197,22 @@ export function useRecoveryData() {
 
         return next;
       });
+
+      logEvent(
+        `Found ${failedPayments.length} failed payment${failedPayments.length === 1 ? "" : "s"}.`,
+        "success"
+      );
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Could not reach the backend to fetch failed payments.";
       setLoadError(message);
+      logEvent(`Failed to fetch failed payments: ${message}`, "error");
     } finally {
       setIsLoadingPayments(false);
     }
-  }, []);
+  }, [logEvent]);
 
   const analyzeOne = useCallback(
     async (internalId: string) => {
@@ -184,6 +234,14 @@ export function useRecoveryData() {
           return next;
         });
 
+        logEvent(
+          `Final: ${record.decision.finalAction}${
+            record.decision.actionOverridden ? " (policy overrode agent)" : ""
+          }`,
+          record.decision.actionOverridden ? "override" : "success",
+          internalId
+        );
+
         await refreshSummary();
       } catch (err) {
         const message =
@@ -203,12 +261,14 @@ export function useRecoveryData() {
           }
           return next;
         });
+
+        logEvent(`Analysis failed: ${message}`, "error", internalId);
       }
     },
-    [refreshSummary]
+    [refreshSummary, logEvent]
   );
 
-  const analyzeAll = useCallback(async () => {
+  const analyzeAll = useCallback(() => {
     setIsAnalyzingAll(true);
     setLoadError(null);
 
@@ -222,28 +282,48 @@ export function useRecoveryData() {
       return next;
     });
 
-    try {
-      const { results } = await batchAnalyze();
-
-      setCasesById((prev) => {
-        const next = new Map(prev);
-        for (const record of results) {
+    const close = streamAnalyze({
+      onBatchStart: (total) => {
+        logEvent(`Starting analysis of ${total} case${total === 1 ? "" : "s"}...`, "info");
+      },
+      onCaseStart: (data) => {
+        logEvent(
+          `Case ${data.index + 1}/${data.total} — ${formatInr(data.amount)} — analyzing...`,
+          "info",
+          data.internalId
+        );
+      },
+      onStep: (data) => {
+        logEvent(data.detail, toneForStepDetail(data.detail), data.internalId);
+      },
+      onCaseComplete: (record) => {
+        setCasesById((prev) => {
+          const next = new Map(prev);
           next.set(record.failedPayment.internalId, toAnalyzedCase(record));
-        }
-        return next;
-      });
+          return next;
+        });
+      },
+      onCaseError: (data) => {
+        setCasesById((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(data.internalId);
+          if (existing) {
+            next.set(data.internalId, { ...existing, status: "error", error: data.error });
+          }
+          return next;
+        });
+        logEvent(`Analysis failed: ${data.error}`, "error", data.internalId);
+      },
+      onBatchComplete: async (count) => {
+        logEvent(`Analysis complete — ${count} case${count === 1 ? "" : "s"} processed.`, "success");
+        setIsAnalyzingAll(false);
+        closeStreamRef.current = null;
+        await refreshSummary();
+      },
+    });
 
-      await refreshSummary();
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : "Could not reach the backend to run batch analysis.";
-      setLoadError(message);
-    } finally {
-      setIsAnalyzingAll(false);
-    }
-  }, [refreshSummary]);
+    closeStreamRef.current = close;
+  }, [logEvent, refreshSummary]);
 
   const executeOne = useCallback(
     async (internalId: string) => {
@@ -268,6 +348,8 @@ export function useRecoveryData() {
           return next;
         });
 
+        logEvent(executionLogMessage(record), "success", internalId);
+
         await refreshSummary();
       } catch (err) {
         const message =
@@ -287,12 +369,14 @@ export function useRecoveryData() {
           }
           return next;
         });
+
+        logEvent(`Execution failed: ${message}`, "error", internalId);
       }
     },
-    [refreshSummary]
+    [refreshSummary, logEvent]
   );
 
-  const executeAll = useCallback(async () => {
+  const executeAll = useCallback(() => {
     setIsExecutingAll(true);
     setLoadError(null);
 
@@ -306,32 +390,56 @@ export function useRecoveryData() {
       return next;
     });
 
-    try {
-      const { results } = await executeBatch();
-
-      setCasesById((prev) => {
-        const next = new Map(prev);
-        for (const record of results) {
+    const close = streamExecute({
+      onBatchStart: (total) => {
+        logEvent(`Executing ${total} case${total === 1 ? "" : "s"}...`, "info");
+      },
+      onCaseStart: (data) => {
+        logEvent(`Executing decision: ${data.finalAction}...`, "info", data.internalId);
+      },
+      onCaseComplete: (record) => {
+        setCasesById((prev) => {
+          const next = new Map(prev);
           const id = record.failedPayment.internalId;
           const existing = next.get(id);
           if (existing) {
             next.set(id, applyExecution(existing, record));
           }
-        }
-        return next;
-      });
+          return next;
+        });
+        logEvent(
+          record.alreadyExecuted
+            ? `Already executed — skipping.`
+            : executionLogMessage(record),
+          record.execution.status === "failed" ? "error" : "success",
+          record.failedPayment.internalId
+        );
+      },
+      onCaseError: (data) => {
+        setCasesById((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(data.internalId);
+          if (existing) {
+            next.set(data.internalId, {
+              ...existing,
+              executionStatus: "execution_error",
+              executionError: data.error,
+            });
+          }
+          return next;
+        });
+        logEvent(`Execution failed: ${data.error}`, "error", data.internalId);
+      },
+      onBatchComplete: async (count) => {
+        logEvent(`Execution complete — ${count} case${count === 1 ? "" : "s"} processed.`, "success");
+        setIsExecutingAll(false);
+        closeStreamRef.current = null;
+        await refreshSummary();
+      },
+    });
 
-      await refreshSummary();
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : "Could not reach the backend to run batch execution.";
-      setLoadError(message);
-    } finally {
-      setIsExecutingAll(false);
-    }
-  }, [refreshSummary]);
+    closeStreamRef.current = close;
+  }, [logEvent, refreshSummary]);
 
   const cases = useMemo(
     () =>
@@ -350,6 +458,7 @@ export function useRecoveryData() {
     cases,
     interventions,
     summary,
+    activityLog,
     isLoadingPayments,
     isAnalyzingAll,
     isExecutingAll,
@@ -361,4 +470,22 @@ export function useRecoveryData() {
     executeAll,
     refreshSummary,
   };
+}
+
+function executionLogMessage(record: ExecutionRecord): string {
+  const { execution } = record;
+
+  if (execution.status === "failed") {
+    return `Execution failed: ${execution.error ?? "unknown error"}`;
+  }
+  if (execution.kind === "payment_link" && execution.paymentLink) {
+    return `Real payment link created: ${execution.paymentLink.shortUrl}`;
+  }
+  if (execution.kind === "escalation") {
+    return `Escalated to ops queue.`;
+  }
+  if (execution.kind === "no_action") {
+    return `No action needed.`;
+  }
+  return execution.detail ?? "Execution complete.";
 }

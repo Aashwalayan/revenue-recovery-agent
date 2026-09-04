@@ -4,13 +4,30 @@ const llmRecoveryAgent = require("../agents/llmRecoveryAgent");
 const { sanitizeAlternatives } = require("../agents/proposalSchema");
 const postCheck = require("../rules/postCheck");
 
-async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}) {
+/**
+ * @param {object} failedPayment
+ * @param {object} [options]
+ * @param {Function} [options.agent] - defaults to the real LLM agent
+ * @param {Function} [options.onStep] - optional callback invoked with each
+ *   timeline entry the instant it's produced, in addition to it being
+ *   collected in the returned decision's `timeline` array. This is what
+ *   lets a caller (e.g. an SSE route) stream the pipeline's reasoning
+ *   live, case-by-case and step-by-step, instead of only seeing the full
+ *   timeline after the whole case finishes. Purely additive -- existing
+ *   callers that don't pass onStep are unaffected.
+ */
+async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent, onStep } = {}) {
     const timeline = [];
+
+    const pushStep = (entry) => {
+        timeline.push(entry);
+        onStep?.(entry);
+    };
 
     const detectedAt =
         failedPayment.timestamps?.detectedAt || new Date().toISOString();
 
-    timeline.push({
+    pushStep({
         step: "detected",
         timestamp: detectedAt,
         detail: "Failed payment ingested by the recovery pipeline."
@@ -20,7 +37,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
 
     failedPayment.failure.normalizedCategory = failureCategory;
 
-    timeline.push({
+    pushStep({
         step: "classified",
         timestamp: new Date().toISOString(),
         detail: `Classified as "${failureCategory}".`
@@ -29,7 +46,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
     const preCheckResult = preCheck(failedPayment, failureCategory);
 
     if (preCheckResult.blocked) {
-        timeline.push({
+        pushStep({
             step: "policy_checked",
             timestamp: new Date().toISOString(),
             detail: `Blocked before agent proposal: ${preCheckResult.reason}.`
@@ -47,7 +64,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
             timeline
         };
 
-        timeline.push({
+        pushStep({
             step: "final_decision",
             timestamp: new Date().toISOString(),
             detail: `Final action: ${finalDecision.finalAction} (policy override, agent never consulted).`
@@ -64,7 +81,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
             failureCategory
         );
 
-        timeline.push({
+        pushStep({
             step: "proposed",
             timestamp: new Date().toISOString(),
             detail: `Agent proposed "${agentProposal.proposedAction}" (confidence ${agentProposal.confidence}).`
@@ -80,13 +97,13 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
         const overrideReason =
             overrideReasons[error.code] || "agent_unknown_error";
 
-        timeline.push({
+        pushStep({
             step: "proposed",
             timestamp: new Date().toISOString(),
             detail: `Agent failed (${overrideReason}): ${error.message}`
         });
 
-        timeline.push({
+        pushStep({
             step: "policy_checked",
             timestamp: new Date().toISOString(),
             detail: "Agent failure caught; pipeline fell back to a safe escalation."
@@ -104,7 +121,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
             timeline
         };
 
-        timeline.push({
+        pushStep({
             step: "final_decision",
             timestamp: new Date().toISOString(),
             detail: "Final action: escalate (safe fallback after agent failure)."
@@ -119,7 +136,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
         agentProposal
     );
 
-    timeline.push({
+    pushStep({
         step: "policy_checked",
         timestamp: new Date().toISOString(),
         detail: finalDecision.overridden
@@ -142,7 +159,7 @@ async function recoveryPipeline(failedPayment, { agent = llmRecoveryAgent } = {}
         timeline
     };
 
-    timeline.push({
+    pushStep({
         step: "final_decision",
         timestamp: new Date().toISOString(),
         detail: `Final action: ${result.finalAction}.`

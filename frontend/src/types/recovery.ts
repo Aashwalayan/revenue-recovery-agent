@@ -197,6 +197,22 @@ export interface Summary {
 }
 
 /**
+ * Frontend-only: a single line in the live activity feed, derived from
+ * SSE events off /analyze-stream and /execute-stream (plus synthesized
+ * locally for single-case analyze/execute so the feed captures those
+ * too). Not a backend shape.
+ */
+export type ActivityTone = "info" | "proposal" | "override" | "success" | "error";
+
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: string;
+  internalId?: string;
+  message: string;
+  tone: ActivityTone;
+}
+
+/**
  * Frontend-only merged view used to drive the table: a failed payment
  * that may or may not have been analyzed/executed yet. Not a backend shape.
  */

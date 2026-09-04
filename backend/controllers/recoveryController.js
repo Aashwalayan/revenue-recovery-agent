@@ -5,6 +5,22 @@ const executeDecision = require("../services/executionService");
 const store = require("../data/store/recoveryStore");
 
 /**
+ * Small SSE helper. Writes one `event: <type>\ndata: <json>\n\n` frame.
+ * Not a generic library -- just enough for the two streaming routes below.
+ */
+function sseWrite(res, type, payload) {
+    res.write(`event: ${type}\n`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function sseInit(res) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+}
+
+/**
  * GET /api/recovery/failed-payments
  *
  * Pulls recent payments from Razorpay Test Mode, filters to failed ones,
@@ -115,6 +131,69 @@ const batchAnalyze = async (req, res) => {
             error: "Failed to batch-analyze payments"
         });
     }
+};
+
+/**
+ * GET /api/recovery/analyze-stream?ids=a,b,c
+ *
+ * Same work as /batch-analyze, but streamed live via Server-Sent Events:
+ * a case_start event before each case, a step event for every single
+ * pipeline timeline entry as it's actually produced (detected ->
+ * classified -> proposed -> policy_checked -> final_decision), and a
+ * case_complete event with the full decision record once it's done.
+ * This is what powers the live activity feed -- real pipeline timing,
+ * not a client-side simulated playback of an already-finished batch.
+ */
+const analyzeStream = async (req, res) => {
+    const requestedIds =
+        typeof req.query.ids === "string" && req.query.ids.length > 0
+            ? req.query.ids.split(",")
+            : null;
+
+    const candidates = requestedIds
+        ? requestedIds.map((id) => store.getFailedPaymentById(id)).filter(Boolean)
+        : store.getFailedPayments();
+
+    sseInit(res);
+    sseWrite(res, "batch_start", { total: candidates.length });
+
+    for (let i = 0; i < candidates.length; i++) {
+        const failedPayment = candidates[i];
+
+        sseWrite(res, "case_start", {
+            internalId: failedPayment.internalId,
+            index: i,
+            total: candidates.length,
+            amount: failedPayment.payment.amount,
+            currency: failedPayment.payment.currency
+        });
+
+        try {
+            const decision = await recoveryPipeline(failedPayment, {
+                onStep: (entry) =>
+                    sseWrite(res, "step", {
+                        internalId: failedPayment.internalId,
+                        ...entry
+                    })
+            });
+
+            const record = store.saveDecision(
+                failedPayment.internalId,
+                failedPayment,
+                decision
+            );
+
+            sseWrite(res, "case_complete", record);
+        } catch (error) {
+            sseWrite(res, "case_error", {
+                internalId: failedPayment.internalId,
+                error: error.message || "Failed to analyze this case"
+            });
+        }
+    }
+
+    sseWrite(res, "batch_complete", { count: candidates.length });
+    res.end();
 };
 
 /**
@@ -238,6 +317,81 @@ const executeBatch = async (req, res) => {
 };
 
 /**
+ * GET /api/recovery/execute-stream?ids=a,b,c
+ *
+ * Same work as /execute-batch, streamed live: a case_start event before
+ * each case (naming the real action about to be taken), then
+ * case_complete with the full execution record (including the real
+ * Razorpay Payment Link URL the instant it's created). Execution has no
+ * pipeline sub-steps the way analysis does -- creating a link is one
+ * atomic call -- so granularity here is per-case, not per-step.
+ */
+const executeStream = async (req, res) => {
+    const requestedIds =
+        typeof req.query.ids === "string" && req.query.ids.length > 0
+            ? req.query.ids.split(",")
+            : null;
+
+    const candidateIds = requestedIds
+        ? requestedIds
+        : store.getAllDecisions().map((r) => r.failedPayment.internalId);
+
+    sseInit(res);
+    sseWrite(res, "batch_start", { total: candidateIds.length });
+
+    let processed = 0;
+
+    for (let i = 0; i < candidateIds.length; i++) {
+        const id = candidateIds[i];
+
+        const existing = store.getExecution(id);
+        if (existing) {
+            sseWrite(res, "case_complete", { ...existing, alreadyExecuted: true });
+            processed++;
+            continue;
+        }
+
+        const decisionRecord = store.getDecision(id);
+        if (!decisionRecord) {
+            continue;
+        }
+
+        sseWrite(res, "case_start", {
+            internalId: id,
+            index: i,
+            total: candidateIds.length,
+            finalAction: decisionRecord.decision.finalAction
+        });
+
+        try {
+            const execution = await executeDecision(
+                decisionRecord.failedPayment,
+                decisionRecord.decision
+            );
+
+            const record = store.saveExecution(
+                id,
+                decisionRecord.failedPayment,
+                decisionRecord.decision,
+                execution
+            );
+
+            sseWrite(res, "case_complete", { ...record, alreadyExecuted: false });
+        } catch (error) {
+            sseWrite(res, "case_error", {
+                internalId: id,
+                error: error.message || "Failed to execute this case"
+            });
+        }
+
+        processed++;
+    }
+
+    sseWrite(res, "batch_complete", { count: processed });
+    res.end();
+};
+
+/**
  * GET /api/recovery/executions
  *
  * Returns every {failedPayment, decision, execution, executedAt} record
@@ -347,9 +501,11 @@ module.exports = {
     getFailedPayments,
     analyzePayment,
     batchAnalyze,
+    analyzeStream,
     getDecisions,
     executeCase,
     executeBatch,
+    executeStream,
     getExecutions,
     getSummary
 };

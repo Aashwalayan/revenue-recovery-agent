@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRecoveryData } from "./hooks/useRecoveryData";
 import { SummaryBar } from "./components/SummaryBar";
 import { ActionBar } from "./components/ActionBar";
+import { ActivityFeed } from "./components/ActivityFeed";
 import { InterventionsSpotlight } from "./components/InterventionsSpotlight";
 import { PaymentsTable } from "./components/PaymentsTable";
 import { AuditTrailModal } from "./components/AuditTrailModal";
@@ -12,6 +13,7 @@ function App() {
     cases,
     interventions,
     summary,
+    activityLog,
     isLoadingPayments,
     isAnalyzingAll,
     isExecutingAll,
@@ -55,6 +57,11 @@ function App() {
         pendingCount={pendingCount}
         executableCount={executableCount}
         loadError={loadError}
+      />
+
+      <ActivityFeed
+        entries={activityLog}
+        isLive={isLoadingPayments || isAnalyzingAll || isExecutingAll}
       />
 
       <InterventionsSpotlight
