@@ -1,36 +1,42 @@
 :root {
-  /* Color */
-  --color-paper: #f7f8fa;
-  --color-surface: #ffffff;
-  --color-ink: #14171f;
-  --color-ink-muted: #5b6472;
-  --color-ink-faint: #8b93a1;
-  --color-border: #dfe3ea;
-  --color-border-strong: #c4cad4;
+  /* Base */
+  --color-paper: #f4f6f9;
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-surface-strong: rgba(255, 255, 255, 0.9);
 
-  /* AI proposal vs. policy override — the whole thesis of this app */
+  --color-ink: #171923;
+  --color-ink-muted: #697386;
+  --color-ink-faint: #98a1b2;
+
+  --color-border: rgba(255, 255, 255, 0.72);
+  --color-border-subtle: rgba(23, 25, 35, 0.07);
+  --color-border-strong: rgba(23, 25, 35, 0.13);
+
+  /* Agent proposal */
   --color-proposal: #6366f1;
-  --color-proposal-wash: #eef0fe;
-  --color-override: #b42318;
-  --color-override-wash: #fbeae8;
-  --color-override-border: #f0c6c1;
+  --color-proposal-wash: rgba(99, 102, 241, 0.1);
 
-  /* Recovered $ / healthy state */
-  --color-recovered: #0f766e;
-  --color-recovered-wash: #e8f5f3;
+  /* Override */
+  --color-override: #b5473e;
+  --color-override-wash: rgba(181, 71, 62, 0.08);
+  --color-override-border: rgba(181, 71, 62, 0.18);
 
-  /* Pending / neutral status */
-  --color-pending: #92610a;
-  --color-pending-wash: #fdf3e2;
+  /* Recovery */
+  --color-recovered: #14766f;
+  --color-recovered-wash: rgba(20, 118, 111, 0.1);
 
-  --color-error: #b42318;
+  /* Pending */
+  --color-pending: #a46b12;
+  --color-pending-wash: rgba(164, 107, 18, 0.1);
 
-  /* Type */
+  --color-error: #b5473e;
+
+  /* Typography */
   --font-display: "Space Grotesk", sans-serif;
   --font-body: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Spacing scale */
+  /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -39,9 +45,28 @@
   --space-6: 32px;
   --space-7: 48px;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  /* Shape */
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
 
-  --shadow-sm: 0 1px 2px rgba(20, 23, 31, 0.06);
-  --shadow-md: 0 4px 16px rgba(20, 23, 31, 0.08);
+  /* App glass fallback */
+  --glass-bg: rgba(255, 255, 255, 0.64);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-blur: blur(24px) saturate(160%);
+
+  /* Depth */
+  --shadow-sm:
+    0 2px 8px rgba(20, 23, 31, 0.025),
+    0 10px 24px rgba(20, 23, 31, 0.035);
+
+  --shadow-md:
+    0 4px 12px rgba(20, 23, 31, 0.035),
+    0 20px 55px rgba(20, 23, 31, 0.075);
+
+  --shadow-lg:
+    0 10px 30px rgba(20, 23, 31, 0.05),
+    0 35px 90px rgba(20, 23, 31, 0.1);
 }
