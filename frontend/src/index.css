@@ -10,14 +10,25 @@ html {
   min-width: 320px;
   min-height: 100%;
   background: #f4f6f9;
+
+  overflow-x: hidden;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
   color: var(--color-ink);
   font-family: var(--font-body);
+
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 
@@ -49,22 +60,40 @@ select {
   font: inherit;
 }
 
-button {
-  -webkit-tap-highlight-color: transparent;
-}
-
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Hide only the page scrollbar — scrolling still works */
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+}
+
 ::selection {
-  background: rgba(99, 102, 241, 0.2);
-  color: var(--color-ink);
+  background: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

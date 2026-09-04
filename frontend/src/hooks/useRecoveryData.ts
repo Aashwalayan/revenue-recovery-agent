@@ -9,6 +9,7 @@ import {
   fetchSummary,
   streamAnalyze,
   streamExecute,
+  refreshRecoveryStatus,
 } from "../api/recoveryApi";
 import type {
   ActivityLogEntry,
@@ -77,6 +78,7 @@ export function useRecoveryData() {
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
   const [isExecutingAll, setIsExecutingAll] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -181,38 +183,108 @@ export function useRecoveryData() {
     logEvent("Fetching failed payments from Razorpay Test Mode...", "info");
 
     try {
-      const { failedPayments } = await fetchFailedPayments();
+      const { failedPayments, recoveredCount = 0 } =
+        await fetchFailedPayments();
+
+      const activeIds = new Set(
+        failedPayments.map((payment) => payment.internalId)
+      );
 
       setCasesById((prev) => {
-        const next = new Map(prev);
+        const next = new Map<string, RecoveryCase>();
 
         for (const failedPayment of failedPayments) {
-          const existing = next.get(failedPayment.internalId);
-          // Don't clobber a case that's already been analyzed by an
-          // earlier fetch — only add genuinely new pending cases.
-          if (!existing) {
-            next.set(failedPayment.internalId, toPendingCase(failedPayment));
-          }
+          const existing = prev.get(failedPayment.internalId);
+
+          next.set(
+            failedPayment.internalId,
+            existing ?? toPendingCase(failedPayment)
+          );
         }
 
         return next;
       });
 
+      if (recoveredCount > 0) {
+        logEvent(
+          `Detected ${recoveredCount} newly recovered payment${recoveredCount === 1 ? "" : "s"
+          }.`,
+          "success"
+        );
+      }
+
       logEvent(
-        `Found ${failedPayments.length} failed payment${failedPayments.length === 1 ? "" : "s"}.`,
+        `Found ${activeIds.size} active failed payment${activeIds.size === 1 ? "" : "s"
+        }.`,
         "success"
       );
+
+      await refreshSummary();
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
           : "Could not reach the backend to fetch failed payments.";
+
       setLoadError(message);
       logEvent(`Failed to fetch failed payments: ${message}`, "error");
     } finally {
       setIsLoadingPayments(false);
     }
-  }, [logEvent]);
+  }, [logEvent, refreshSummary]);
+
+
+  const refreshRecoveries = useCallback(async () => {
+    setIsRefreshing(true);
+    setLoadError(null);
+
+    logEvent(
+      "Checking executed payment links for successful recoveries...",
+      "info"
+    );
+
+    try {
+      const result = await refreshRecoveryStatus();
+
+      if (result.recoveredCount === 0) {
+        logEvent(
+          "Refresh complete — no new recoveries detected.",
+          "info"
+        );
+      } else {
+        setCasesById((prev) => {
+          const next = new Map(prev);
+
+          for (const recovery of result.recovered) {
+            next.delete(recovery.internalId);
+          }
+
+          return next;
+        });
+
+        logEvent(
+          `Recovery detected — ${result.recoveredCount} case${result.recoveredCount === 1 ? "" : "s"
+          } closed successfully.`,
+          "success"
+        );
+      }
+
+      await refreshSummary();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Could not refresh recovery status.";
+
+      setLoadError(message);
+      logEvent(
+        `Recovery refresh failed: ${message}`,
+        "error"
+      );
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [logEvent, refreshSummary]);
 
   const analyzeOne = useCallback(
     async (internalId: string) => {
@@ -235,8 +307,7 @@ export function useRecoveryData() {
         });
 
         logEvent(
-          `Final: ${record.decision.finalAction}${
-            record.decision.actionOverridden ? " (policy overrode agent)" : ""
+          `Final: ${record.decision.finalAction}${record.decision.actionOverridden ? " (policy overrode agent)" : ""
           }`,
           record.decision.actionOverridden ? "override" : "success",
           internalId
@@ -469,6 +540,8 @@ export function useRecoveryData() {
     executeOne,
     executeAll,
     refreshSummary,
+    refreshRecoveries,
+    isRefreshing,
   };
 }
 

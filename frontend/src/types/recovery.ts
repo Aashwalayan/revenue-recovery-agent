@@ -118,6 +118,14 @@ export interface DecisionRecord {
 export interface FailedPaymentsResponse {
   count: number;
   failedPayments: FailedPayment[];
+
+  recoveredCount?: number;
+  recovered?: Array<{
+    internalId: string;
+    paymentLinkId: string;
+    razorpayPaymentId: string;
+    amount: number;
+  }>;
 }
 
 /** POST /api/recovery/batch-analyze response */

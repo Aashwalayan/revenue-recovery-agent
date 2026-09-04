@@ -10,7 +10,8 @@ const {
     executeBatch,
     executeStream,
     getExecutions,
-    getSummary
+    getSummary,
+    refreshRecoveryStatus
 } = require("../controllers/recoveryController");
 
 const router = express.Router();
@@ -25,5 +26,5 @@ router.post("/execute-batch", executeBatch);
 router.get("/execute-stream", executeStream);
 router.get("/executions", getExecutions);
 router.get("/summary", getSummary);
-
+router.post("/refresh", refreshRecoveryStatus);
 module.exports = router;

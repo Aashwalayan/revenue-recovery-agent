@@ -67,18 +67,8 @@ const setFailedPayments = (payments) => {
         failedPayments.set(payment.internalId, payment);
     }
 
-    // Remove decisions/executions for payments no longer present.
-    for (const [id] of decisions) {
-        if (!failedPayments.has(id)) {
-            decisions.delete(id);
-        }
-    }
-
-    for (const [id] of executions) {
-        if (!failedPayments.has(id)) {
-            executions.delete(id);
-        }
-    }
+    // Keep decisions and executions as historical records even after a case
+    // leaves the active failed-payment queue because it was recovered.
 };
 
 const getFailedPayments = () => {
@@ -169,6 +159,16 @@ const markPaymentLinkRecovered = (
     return null;
 };
 
+const getUnreconciledPaymentLinkExecutions = () => {
+    return Array.from(executions.values()).filter(
+        (record) =>
+            record.execution?.kind === "payment_link" &&
+            record.execution?.status === "success" &&
+            record.execution?.paymentLink?.id &&
+            record.recovery?.status !== "recovered"
+    );
+};
+
 const clear = () => {
     failedPayments.clear();
     decisions.clear();
@@ -186,5 +186,6 @@ module.exports = {
     getExecution,
     getAllExecutions,
     markPaymentLinkRecovered,
+    getUnreconciledPaymentLinkExecutions,
     clear
 };

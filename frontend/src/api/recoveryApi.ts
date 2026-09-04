@@ -170,6 +170,25 @@ export function streamAnalyze(
   return () => source.close();
 }
 
+export interface RefreshRecoveryResponse {
+  recoveredCount: number;
+  recovered: Array<{
+    internalId: string;
+    paymentLinkId: string;
+    razorpayPaymentId: string;
+    amount: number;
+  }>;
+}
+
+/** POST /api/recovery/refresh */
+export async function refreshRecoveryStatus(): Promise<RefreshRecoveryResponse> {
+  const response = await fetch(`${API_BASE}/refresh`, {
+    method: "POST",
+  });
+
+  return handleResponse<RefreshRecoveryResponse>(response);
+}
+
 interface ExecuteStreamHandlers {
   onBatchStart?: (total: number) => void;
   onCaseStart?: (data: {

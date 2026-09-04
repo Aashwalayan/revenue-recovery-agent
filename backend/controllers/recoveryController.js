@@ -20,6 +20,89 @@ function sseInit(res) {
     res.flushHeaders?.();
 }
 
+const reconcileRecoveries = async () => {
+    const pendingRecoveries =
+        store.getUnreconciledPaymentLinkExecutions();
+
+    const recovered = [];
+
+    for (const record of pendingRecoveries) {
+        const paymentLinkId = record.execution.paymentLink.id;
+
+        try {
+            const link =
+                await razorpay.paymentLink.fetch(paymentLinkId);
+
+            if (link.status !== "paid") {
+                continue;
+            }
+
+            const referenceId =
+                record.failedPayment.internalId;
+
+            const payment = {
+                razorpayPaymentId:
+                    link.payment_id || link.id,
+                amount:
+                    link.amount_paid ??
+                    link.amount ??
+                    record.failedPayment.payment.amount,
+                currency:
+                    link.currency ||
+                    record.failedPayment.payment.currency,
+                method: "payment_link",
+                paidAt: link.updated_at
+                    ? new Date(link.updated_at * 1000).toISOString()
+                    : new Date().toISOString()
+            };
+
+            const updated =
+                store.markPaymentLinkRecovered(
+                    paymentLinkId,
+                    referenceId,
+                    payment
+                );
+
+            if (updated && !updated.alreadyRecovered) {
+                recovered.push({
+                    internalId: referenceId,
+                    paymentLinkId,
+                    razorpayPaymentId:
+                        payment.razorpayPaymentId,
+                    amount: payment.amount
+                });
+            }
+        } catch (error) {
+            console.error(
+                `Failed to reconcile payment link ${paymentLinkId}:`,
+                error
+            );
+        }
+    }
+
+    return recovered;
+};
+
+const refreshRecoveryStatus = async (req, res) => {
+    try {
+        const recovered = await reconcileRecoveries();
+
+        res.json({
+            recoveredCount: recovered.length,
+            recovered
+        });
+    } catch (error) {
+        console.error(
+            "Failed to refresh recovery status:",
+            error
+        );
+
+        res.status(500).json({
+            error: "Failed to refresh recovery status"
+        });
+    }
+};
+
 /**
  * GET /api/recovery/failed-payments
  *
@@ -29,6 +112,8 @@ function sseInit(res) {
  */
 const getFailedPayments = async (req, res) => {
     try {
+        const recovered = await reconcileRecoveries();
+
         const count = Math.min(Number(req.query.count) || 100, 100);
 
         const raw = await razorpay.payments.all({ count });
@@ -515,6 +600,7 @@ const getSummary = (req, res) => {
 
 module.exports = {
     getFailedPayments,
+    refreshRecoveryStatus,
     analyzePayment,
     batchAnalyze,
     analyzeStream,
