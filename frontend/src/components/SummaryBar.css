@@ -72,6 +72,11 @@
   color: var(--color-recovered);
 }
 
+.summary-bar__value--confirmed {
+  color: var(--color-recovered);
+  font-weight: 800;
+}
+
 .summary-bar__value--estimate {
   color: var(--color-ink-muted);
   font-style: italic;

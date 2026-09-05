@@ -202,6 +202,13 @@ export interface Summary {
   linksCreatedCount: number;
   escalationsQueuedCount: number;
   executionFailedCount: number;
+
+  // Ground truth: a real Razorpay payment was confirmed paid (via
+  // webhook or the /refresh reconciliation poll) -- not a projection,
+  // not just "a link was created," an actual observed payment.
+  recoveredCount: number;
+  recoveredAmount: number;
+  recoveryRate: number;
 }
 
 /**

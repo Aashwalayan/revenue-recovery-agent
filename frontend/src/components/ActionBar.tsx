@@ -4,12 +4,15 @@ interface ActionBarProps {
   onFetchPayments: () => void;
   onAnalyzeAll: () => void;
   onExecuteAll: () => void;
+  onRefreshRecoveries: () => void;
   isLoadingPayments: boolean;
   isAnalyzingAll: boolean;
   isExecutingAll: boolean;
+  isRefreshing: boolean;
   caseCount: number;
   pendingCount: number;
   executableCount: number;
+  awaitingConfirmationCount: number;
   loadError: string | null;
 }
 
@@ -17,12 +20,15 @@ export function ActionBar({
   onFetchPayments,
   onAnalyzeAll,
   onExecuteAll,
+  onRefreshRecoveries,
   isLoadingPayments,
   isAnalyzingAll,
   isExecutingAll,
+  isRefreshing,
   caseCount,
   pendingCount,
   executableCount,
+  awaitingConfirmationCount,
   loadError,
 }: ActionBarProps) {
   return (
@@ -53,6 +59,16 @@ export function ActionBar({
           {isExecutingAll
             ? "Executing…"
             : `Execute all${executableCount > 0 ? ` (${executableCount} ready)` : ""}`}
+        </button>
+        <button
+          className="action-bar__btn action-bar__btn--refresh"
+          onClick={onRefreshRecoveries}
+          disabled={isRefreshing || awaitingConfirmationCount === 0}
+          title="Checks Razorpay for real payment confirmations on links you've sent — use this if you're not running a live webhook listener"
+        >
+          {isRefreshing
+            ? "Checking…"
+            : `Check for payments${awaitingConfirmationCount > 0 ? ` (${awaitingConfirmationCount} pending)` : ""}`}
         </button>
       </div>
       <div className="action-bar__status">

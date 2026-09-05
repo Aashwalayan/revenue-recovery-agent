@@ -17,12 +17,14 @@ function App() {
     isLoadingPayments,
     isAnalyzingAll,
     isExecutingAll,
+    isRefreshing,
     loadError,
     fetchPayments,
     analyzeOne,
     analyzeAll,
     executeOne,
     executeAll,
+    refreshRecoveries,
   } = useRecoveryData();
 
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
@@ -34,6 +36,9 @@ function App() {
   const pendingCount = cases.filter((c) => c.status === "pending").length;
   const executableCount = cases.filter(
     (c) => c.status === "analyzed" && c.executionStatus === "not_executed"
+  ).length;
+  const awaitingConfirmationCount = cases.filter(
+    (c) => c.execution?.kind === "payment_link" && c.execution?.status === "success"
   ).length;
   const selectedCase = cases.find((c) => c.internalId === selectedCaseId) ?? null;
 
@@ -50,12 +55,15 @@ function App() {
         onFetchPayments={fetchPayments}
         onAnalyzeAll={analyzeAll}
         onExecuteAll={executeAll}
+        onRefreshRecoveries={refreshRecoveries}
         isLoadingPayments={isLoadingPayments}
         isAnalyzingAll={isAnalyzingAll}
         isExecutingAll={isExecutingAll}
+        isRefreshing={isRefreshing}
         caseCount={cases.length}
         pendingCount={pendingCount}
         executableCount={executableCount}
+        awaitingConfirmationCount={awaitingConfirmationCount}
         loadError={loadError}
       />
 

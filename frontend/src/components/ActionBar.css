@@ -102,6 +102,17 @@
   border-color: #0e655f;
 }
 
+.action-bar__btn--refresh {
+  background: var(--color-pending);
+  border-color: var(--color-pending);
+  color: white;
+}
+
+.action-bar__btn--refresh:hover:not(:disabled) {
+  background: #8a5a0f;
+  border-color: #8a5a0f;
+}
+
 .action-bar__status {
   display: flex;
   align-items: center;

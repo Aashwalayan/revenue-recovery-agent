@@ -20,9 +20,18 @@ export function SummaryBar({ summary, fallbackAtRiskAmount }: SummaryBarProps) {
       tone: "neutral" as const,
     },
     {
+      // Ground truth: Razorpay has confirmed the customer actually paid
+      // (via webhook or the /refresh reconciliation poll). This is the
+      // strongest claim on the whole dashboard -- deliberately the most
+      // prominent stat, not just "recovered" in name only.
+      label: "Recovered (confirmed)",
+      value: summary ? formatInr(summary.recoveredAmount) : "—",
+      tone: "confirmed" as const,
+    },
+    {
       // Real: an actual Razorpay Payment Link or escalation was created.
-      // Still not "customer paid" -- that needs a webhook -- but it's a
-      // genuine record of work done, not a projection.
+      // Still not "customer paid" -- that's the confirmed stat above --
+      // but it's a genuine record of work done, not a projection.
       label: "Actioned",
       value: summary ? formatInr(summary.actionedAmount) : "—",
       tone: "recovered" as const,
