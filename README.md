@@ -119,7 +119,7 @@ Regenerate this by running the benchmark yourself — see [Running locally](#run
 | Backend | Node.js + Express (JavaScript) |
 | Payments | Razorpay Test Mode, official SDK |
 | AI agent | Qwen 3.6 27B via OpenRouter, structured-JSON-only prompting |
-| Frontend | Vite + React + TypeScript |
+| Frontend | Vite + React + TypeScript, view-based navigation (no routing library) |
 | Testing | 25+ scenario tests for the policy layer, plus dedicated regression tests |
 
 ## Repository structure
@@ -169,6 +169,8 @@ node evaluateRecovery.js --count 20 --real-agent   # live LLM
 
 ## Dashboard
 
+The frontend is organized around a fixed vertical sidebar with three sections — **Dashboard**, **Recovery Cases**, and **Human Review** — switched without a full page reload, with an animated active-state indicator and live badge counts (hidden when zero) for cases in the recovery queue and cases awaiting human approval.
+
 | Feature | Status |
 |---|---|
 | Batch of failed/at-risk payments with total ₹ at risk | ✅ |
@@ -177,6 +179,7 @@ node evaluateRecovery.js --count 20 --real-agent   # live LLM
 | Recovery summary (₹ recovered, recovery rate, interventions) computed live | ✅ |
 | Full per-case audit trail: detected → proposed → policy-checked → executed → confirmed | ✅ |
 | History tab for resolved/cleared cases | ✅ |
+| Dedicated Human Review queue, separate from the automated recovery flow | ✅ |
 | Tested fallback path for agent failures (no unhandled crash) | ✅ |
 
 ## Compliance framing
